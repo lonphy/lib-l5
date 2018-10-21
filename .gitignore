@@ -1,9 +1,23 @@
-CMakeCache.txt
-CMakeFiles
-CMakeScripts
-Testing
-Makefile
-cmake_install.cmake
-install_manifest.txt
-compile_commands.json
-CTestTestfile.cmake
+# osx
+.DS_Store
+
+# ide
+/.idea/
+/.mxproject
+
+# cmake
+/cmake-build-debug/
+/cmake-build-release/
+/cmake-build-default/
+/cmake-build-relwithdebinfo/
+/cmake-build-minsizerel/
+
+/build/
+
+# drivers
+/Drivers/CMSIS/DSP_Lib/
+/Drivers/CMSIS/Lib/
+/Drivers/CMSIS/RTOS/
+/Drivers/CMSIS/Device/ST/STM32F1xx/Source/
+
+
