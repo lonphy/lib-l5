@@ -14,7 +14,7 @@ int main(void) {
     SystemClock_Config();
     MX_GPIO_Init();
 //    MX_CRC_Init();
-  //  UartInit();
+//    UartInit();
     MX_FREERTOS_Init();
 
     osKernelStart();

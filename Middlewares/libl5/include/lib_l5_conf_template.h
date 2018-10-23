@@ -15,7 +15,7 @@ extern "C" {
 #define L5_USE_LED
 #define L5_USE_ESP8266
 #define L5_USE_LCD1602
-
+#define L5_USE_LCD12864
 
 /*------------ LCD1602 config -------------- */
 #ifdef L5_USE_LCD1602
@@ -31,6 +31,11 @@ extern "C" {
 #endif
 /*------------ LCD1602 config -------------- */
 
+/*------------ LCD12864 config -------------- */
+#ifdef L5_USE_LCD12864
+
+#endif
+/*------------ LCD12864 config -------------- */
 
 #ifdef __cplusplus
 }

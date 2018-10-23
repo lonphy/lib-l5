@@ -19,7 +19,6 @@ HAL_StatusTypeDef L5InitConsole(UART_HandleTypeDef *uart) {
     return HAL_OK;
 }
 
-// 向控制台写入数据
 HAL_StatusTypeDef L5ConsoleWrite(const char *buf, uint16_t bufSize) {
     HAL_StatusTypeDef result;
     consoleTxLock(osWaitForever);
@@ -30,12 +29,11 @@ HAL_StatusTypeDef L5ConsoleWrite(const char *buf, uint16_t bufSize) {
     return result;
 }
 
-// 从控制台读取数据
 HAL_StatusTypeDef L5ConsoleRead(void *buf, uint bufSize) {
+    // TODO:
     return HAL_OK;
 }
 
-// 销毁
 void L5DeInitConsole(void) {
     consoleUart = NULL;
     osMutexDelete(txMuxId);
