@@ -10,9 +10,10 @@ file(RENAME Src Src)
 # - 移动目录下的*.s *.ld 到 util目录中
 
 # ============= 配置区域 ========================
+#set(USE_DSP 1)
 set(HEAPX heap_4)
 set(ALL_DEPS_INC "")
-set(SRC_FILES    "")
+set(SRC_FILES "")
 
 
 # ============= 用户代码区域 =====================
@@ -29,11 +30,11 @@ list(APPEND SRC_FILES ${LIB_L5_SRC} ${LIB_L5_INC})
 # ================ 依赖库区域 =============================================
 set(3rd Middlewares/Third_Party)
 set(rtos_root ${3rd}/FreeRTOS/Source)
-
+set(CMSIS Drivers/CMSIS)
 set(RTOS_INC ${rtos_root}/include)
 set(HAL_INC Drivers/${MCU_FAMILY}_HAL_Driver/Inc)
-set(CMSIS_DEVICE_INC Drivers/CMSIS/Device/ST/${MCU_FAMILY}/Include)
-set(CMSIS_INC Drivers/CMSIS/Include)
+set(CMSIS_DEVICE_INC ${CMSIS}/Device/ST/${MCU_FAMILY}/Include)
+set(CMSIS_INC ${CMSIS}/Include)
 
 
 file(GLOB_RECURSE CMSIS_DEVICE_INC_F ${CMSIS_DEVICE_INC}/*.h)
@@ -75,6 +76,24 @@ list(APPEND SRC_FILES
         ${CMSIS_ROTS_INC_F}
         ${RTOS_PORT_INC_F}
         )
+
+# ============================= dsp lib ==========================
+if (${USE_DSP})
+    set(FPU_FLAG           "-mfloat-abi=soft -mfpu=vfp")
+    set(CMAKE_C_FLAGS "${FPU_FLAG} ${CMAKE_C_FLAGS}  -D__FPU_PRESENT -DARM_MATH_CM3")
+    set(CMAKE_CXX_FLAGS "${FPU_FLAG} ${CMAKE_CXX_FLAGS}  -D__FPU_PRESENT -DARM_MATH_CM3")
+    set(CMAKE_ASM_FLAGS "${FPU_FLAG} ${CMAKE_ASM_FLAGS}")
+
+    set(DSP_SRC_DIR ${CMSIS}/DSP_Lib/Source)
+    file(GLOB_RECURSE DSP_SRC ${DSP_SRC_DIR}/*.c)
+    list(APPEND SRC_FILES ${DSP_SRC})
+
+    # printf/sprint float support
+    set(CMAKE_EXE_LINKER_FLAGS "-u _printf_float ${CMAKE_EXE_LINKER_FLAGS}")
+
+endif ()
+# ============================= dsp lib ==========================
+
 # ============================ 依赖库区域 ====================================================
 
 # file 命令
