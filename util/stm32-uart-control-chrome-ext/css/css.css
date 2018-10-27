@@ -1,0 +1,98 @@
+html,body{
+    height: 100vh;
+}
+select, input {
+    outline: none;
+    min-width: 20em;
+	margin-left: 1em;
+	box-sizing: border-box;
+	height: 32px;
+}
+p {
+    line-height: 32px;
+    margin-bottom: 5px;
+    display: flex;
+}
+p > label {
+    width: 22%;
+    text-align: right;
+}
+body {
+    display: flex;
+    margin: 0;
+	padding: 0;
+	font-size: 12px;
+}
+body > section {
+    flex: 1;
+}
+body > section:last-child {
+    box-shadow: -1px 0 7px #a5a5a5;
+}
+.output {
+    display: flex;
+    flex-direction: column;
+}
+.output fieldset {
+    flex: 1;
+    margin: 5px 10px;
+    padding: 5px;
+    border: 1px solid #999;
+    border-radius: 3px;
+    display: flex;
+    background-color: #b32e2e0a;
+    overflow: hidden;
+}
+.log-win {
+    margin: 0 5px;
+    padding: 0;
+    overflow-y: scroll;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+.log-win, .log-win li {
+	list-style: none;
+}
+.log-win li {
+	line-height: 1.7em;
+}
+.log-win li:nth-child(2n+1) {
+    background-color: #d2e6ea;
+}
+.log-win li:last-child {
+	margin-bottom: 1em;
+}
+
+.large input, .large button {
+	height: 32px;
+}
+.large input {
+    height: 32px;
+    border: none;
+    border-bottom: 1px solid firebrick;
+    box-shadow: none;
+}
+
+button {
+    border-radius: 3px;
+    padding: 0 1em;
+    margin-left: 1em;
+    height: 24px;
+    line-height: 24px;
+    border: none;
+    cursor: pointer;
+    outline: none;
+    box-shadow: 0 0 3px #333;
+    color: #ffffff;
+    background-color: firebrick;
+}
+
+button:hover {
+	background: #fff;
+    color: firebrick;
+}
+
+hr {
+	margin: 10px;
+}

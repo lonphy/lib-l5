@@ -11,7 +11,7 @@ extern "C" {
 
 #include "main.h"
 
-#define L5_USE_CONSOLE
+/* #define L5_USE_CONSOLE */
 #define L5_USE_LED
 /* #define L5_USE_ESP8266 */
 /* #define L5_USE_LCD1602 */
@@ -47,7 +47,7 @@ extern "C" {
 /*------------ LED config -------------- */
 #ifdef L5_USE_LED
 #define LED_GPIO GPIOB
-#define LED_LED1_PIN GPIO_PIN_3 // PB3
+#define LED_LED1_PIN GPIO_PIN_4 // PB3
 
 #if 0
 // TODO: Just for testing.

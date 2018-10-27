@@ -31,11 +31,11 @@ typedef enum {
 
 void L5_LedInit(void);
 
-void LedOn(LedType led);
+void L5_LedOn(LedType led);
 
-void LedOff(LedType led);
+void L5_LedOff(LedType led);
 
-void LedToggle(LedType led);
+void L5_LedToggle(LedType led);
 
 #endif // L5_USE_LED
 

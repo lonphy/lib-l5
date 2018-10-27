@@ -34,15 +34,15 @@ void L5_LedInit(void) {
     HAL_GPIO_Init(LED_GPIO, &gpioOpt);
 }
 
-void LedOn(LedType led) {
+void L5_LedOn(LedType led) {
     HAL_GPIO_WritePin(LED_GPIO, led_pin[led], GPIO_PIN_SET);
 }
 
-void LedOff(LedType led) {
+void L5_LedOff(LedType led) {
     HAL_GPIO_WritePin(LED_GPIO, led_pin[led], GPIO_PIN_RESET);
 }
 
-void LedToggle(LedType led) {
+void L5_LedToggle(LedType led) {
     HAL_GPIO_TogglePin(LED_GPIO, led_pin[led]);
 }
 

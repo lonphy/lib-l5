@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<title>STM32 Control by lonphy</title>
+	<link href="css/css.css" rel="stylesheet">
+
+	<script src="js/serial.js"></script>
+	<script src="js/UsartConn.js"></script>
+	<script src="js/app.js"></script>
+</head>
+
+<body>
+	<section>
+		<p>
+			<label for="serialPort">select:</label>
+			<select id="serialPort"></select>
+		</p>
+
+		<p>
+			<label for="serialRateBit">Baud Rate:</label>
+			<select id="serialRateBit">
+				<option value="9600">9600</option>
+				<option value="38400">38400</option>
+				<option value="115200" selected>115200</option>
+			</select>
+		</p>
+		<hr>
+		<p>
+			<button id="connect">Connect</button>
+			<button id="toggleLed">Toggle Led</button>
+		</p>
+		<p class="large">
+			<input type="text" id="lcdStrInput" maxlength="18">
+			<button id="lcdStr">Send to Display</button>
+		</p>
+	</section>
+	<section class="output">
+		<fieldset>
+			<legend>MCU Info</legend>
+			<ul>
+				<li>Type: ARM STM32F103C8</li>
+				<li> MCU ID: 43017029-31325234-5D7FF39</li>
+				<li>MCU Version: v2.1</li>
+				<li> Flash: 64k</li>
+				<li> SRAM: 20k</li>
+			</ul>
+		</fieldset>
+		<fieldset>
+			<legend>Log</legend>
+			<ul id="output" class="log-win"></ul>
+		</fieldset>
+	</section>
+</body>
+
+</html>

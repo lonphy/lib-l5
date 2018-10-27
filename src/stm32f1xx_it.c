@@ -37,7 +37,7 @@
 #include "cmsis_os.h"
 
 /* USER CODE BEGIN 0 */
-
+extern UART_HandleTypeDef hUart1;
 /* USER CODE END 0 */
 
 /* External variables --------------------------------------------------------*/
@@ -167,6 +167,14 @@ void SysTick_Handler(void)
 /******************************************************************************/
 
 /* USER CODE BEGIN 1 */
+void USART1_IRQHandler(void)
+{
+    HAL_UART_IRQHandler(&hUart1);
+}
 
+void DMA1_Channel4_IRQHandler(void)
+{
+    HAL_DMA_IRQHandler(hUart1.hdmatx);
+}
 /* USER CODE END 1 */
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
