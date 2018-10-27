@@ -32,6 +32,9 @@ void L5_LedInit(void) {
     gpioOpt.Mode = GPIO_MODE_OUTPUT_PP;
     gpioOpt.Speed = GPIO_SPEED_FREQ_LOW;
     HAL_GPIO_Init(LED_GPIO, &gpioOpt);
+#ifdef LED_LED1_PIN
+    L5_LedOff(Led1);
+#endif
 }
 
 void L5_LedOn(LedType led) {

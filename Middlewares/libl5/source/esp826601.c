@@ -1,9 +1,11 @@
 #include "lib_l5.h"
 
 #if defined(L5_USE_ESP8266)
-#include <malloc.h>
+#include <cmsis_os.h>
 #include <string.h>
 #include <stdio.h>
+
+extern UART_HandleTypeDef hWifi;
 
 static HAL_StatusTypeDef l5_Wifi_NoGetCommand(
         L5_Wifi_DrvTypeDef *h,
@@ -13,7 +15,7 @@ static HAL_StatusTypeDef l5_Wifi_NoGetCommand(
     uint8_t buf[128];
 
     __HAL_LOCK(h);
-    ret = HAL_UART_Transmit(h->hUart, cmd, cmdSize, __L5_ESP8266_TIMEOUT);
+    ret = HAL_UART_Transmit(&hWifi, cmd, cmdSize, __L5_ESP8266_TIMEOUT);
     if (HAL_OK != ret) {
         __HAL_UNLOCK(h);
         WifiLog("transmit err->%d", ret);
@@ -21,7 +23,7 @@ static HAL_StatusTypeDef l5_Wifi_NoGetCommand(
     }
 
 
-    ret = HAL_UART_Receive(h->hUart, buf, 128, __L5_ESP8266_TIMEOUT);
+    ret = HAL_UART_Receive(&hWifi, buf, 128, __L5_ESP8266_TIMEOUT);
     if (HAL_OK != ret) {
         __HAL_UNLOCK(h);
         WifiLog("receive err->%d", ret);
@@ -46,13 +48,13 @@ static HAL_StatusTypeDef l5_Wifi_QueryCommand(
     HAL_StatusTypeDef ret;
 
     __HAL_LOCK(h);
-    ret = HAL_UART_Transmit(h->hUart, cmd, cmdSize, __L5_ESP8266_TIMEOUT);
+    ret = HAL_UART_Transmit(&hWifi, cmd, cmdSize, __L5_ESP8266_TIMEOUT);
     if (HAL_OK != ret) {
         __HAL_UNLOCK(h);
         return ret;
     }
 
-    ret = HAL_UART_Receive(h->hUart, buf, bufSize, __L5_ESP8266_TIMEOUT);
+    ret = HAL_UART_Receive(&hWifi, buf, bufSize, __L5_ESP8266_TIMEOUT);
     if (HAL_OK != ret) {
         __HAL_UNLOCK(h);
         return ret;
@@ -63,21 +65,15 @@ static HAL_StatusTypeDef l5_Wifi_QueryCommand(
 }
 
 // 初始化WIFI模块
-HAL_StatusTypeDef L5_Wifi_Init(L5_Wifi_DrvTypeDef *h) {
-    HAL_StatusTypeDef result;
+HAL_StatusTypeDef L5_Wifi_Init() {
 
-    result = HAL_UART_Init(h->hUart);
-    if (HAL_OK != result) {
-        return result;
-    }
+    uint8_t * discardBuf = pvPortMalloc(512);
 
-    uint8_t * discardBuf = malloc(512);
-
-    HAL_UART_Receive(h->hUart, discardBuf, 512, 2000);
+    HAL_UART_Receive(&hWifi, discardBuf, 512, 2000);
     WifiLog("droped %s", discardBuf);
-    HAL_UART_Receive(h->hUart, discardBuf, 512, 2000);
+    HAL_UART_Receive(&hWifi, discardBuf, 512, 2000);
     WifiLog("droped %s", discardBuf);
-    free(discardBuf);
+    vPortFree(discardBuf);
 
     return HAL_OK;
 }
@@ -102,11 +98,11 @@ HAL_StatusTypeDef L5_Wifi_Ping(L5_Wifi_DrvTypeDef *h) {
 
 // 获取当前工作模式
 L5_Wifi_WorkMode L5_Wifi_GetWorkMode(L5_Wifi_DrvTypeDef *h) {
-    uint8_t *buf = malloc(32);
+    uint8_t *buf = pvPortMalloc(32);
     HAL_StatusTypeDef ret = l5_Wifi_QueryCommand(h, CMD_MODE_QUERY, CMD_MODE_QUERY_SIZE, buf, 32);
     if (ret != HAL_OK) {
         WifiLog("err -> %d", ret);
-        free(buf);
+        vPortFree(buf);
         return CWM_Unknown;
     }
 
@@ -116,7 +112,7 @@ L5_Wifi_WorkMode L5_Wifi_GetWorkMode(L5_Wifi_DrvTypeDef *h) {
     // +CWMODE:<mode>
     //
     // OK/ERROR
-    free(buf);
+    vPortFree(buf);
 
     return CWM_Unknown;
 }
@@ -130,10 +126,10 @@ HAL_StatusTypeDef L5_Wifi_SetWorkMode(L5_Wifi_DrvTypeDef *h, L5_Wifi_WorkMode mo
     if (mode == CWM_Unknown) {
         return HAL_ERROR;
     }
-    cmdBuf = malloc(CMD_MODE_SET_SIZE);
+    cmdBuf = pvPortMalloc(CMD_MODE_SET_SIZE);
     realCmdLen = sprintf(cmdBuf, CMD_MODE_SET_TPL, mode);
     ret = l5_Wifi_NoGetCommand(h, (uint8_t *) cmdBuf, (uint16_t) realCmdLen);
-    free(cmdBuf);
+    vPortFree(cmdBuf);
     return ret;
 }
 
@@ -157,19 +153,19 @@ HAL_StatusTypeDef L5_Wifi_JoinAP(L5_Wifi_DrvTypeDef *h, const char *ssid, const 
     char *cmdBuf;
     int realCmdLen;
 
-    cmdBuf = malloc(CMD_JOIN_AP_SIZE);
+    cmdBuf = pvPortMalloc(CMD_JOIN_AP_SIZE);
     realCmdLen = sprintf(cmdBuf, CMD_JOIN_AP_TPL, ssid, pwd);
     ret = l5_Wifi_NoGetCommand(h, (uint8_t *) cmdBuf, (uint16_t) realCmdLen);
-    free(cmdBuf);
+    vPortFree(cmdBuf);
     return ret;
 }
 
 // 获取所有可用AP列表
 HAL_StatusTypeDef L5_Wifi_GetAPList(L5_Wifi_DrvTypeDef *h) {
-    uint8_t *buf = malloc(128 * 10);
+    uint8_t *buf = pvPortMalloc(128 * 10);
     HAL_StatusTypeDef ret = l5_Wifi_QueryCommand(h, CMD_LIST_AP, CMD_LIST_AP_SIZE, buf, 128 * 10);
     if (ret != HAL_OK) {
-        free(buf);
+        vPortFree(buf);
         return ret;
     }
 
@@ -177,7 +173,7 @@ HAL_StatusTypeDef L5_Wifi_GetAPList(L5_Wifi_DrvTypeDef *h) {
     // TODO 解析返回值
     // + CWLAP: <ecn>,<ssid>,<rssi>,<mac>
     // OK/ERROR
-    free(buf);
+    vPortFree(buf);
     return HAL_OK;
 }
 
@@ -190,10 +186,10 @@ HAL_StatusTypeDef L5_Wifi_LeaveAp(L5_Wifi_DrvTypeDef *h) {
 // 获取WIFI热点配置信息
 HAL_StatusTypeDef L5_Wifi_GetHotspot(L5_Wifi_DrvTypeDef *h, L5_Wifi_HOTSPOT_InitTypeDef *opt) {
     HAL_StatusTypeDef ret;
-    char *buf = malloc(128);
+    char *buf = pvPortMalloc(128);
     ret = l5_Wifi_QueryCommand(h, CMD_HOTSPOT_QUERY, CMD_HOTSPOT_QUERY_SIZE, (uint8_t *) buf, 128);
     if (ret != HAL_OK) {
-        free(buf);
+        vPortFree(buf);
         return ret;
     }
 
@@ -209,10 +205,10 @@ HAL_StatusTypeDef L5_Wifi_SetHotspot(L5_Wifi_DrvTypeDef *h, L5_Wifi_HOTSPOT_Init
     char *cmdBuf;
     int realCmdLen;
 
-    cmdBuf = malloc(CMD_HOTSPOT_SET_TPL_SIZE);
+    cmdBuf = pvPortMalloc(CMD_HOTSPOT_SET_TPL_SIZE);
     realCmdLen = sprintf(cmdBuf, CMD_HOTSPOT_SET_TPL, opt->SSID, opt->Pwd, opt->Channel, opt->EncType);
     ret = l5_Wifi_NoGetCommand(h, (uint8_t *) cmdBuf, (uint16_t) realCmdLen);
-    free(cmdBuf);
+    vPortFree(cmdBuf);
     return ret;
 }
 

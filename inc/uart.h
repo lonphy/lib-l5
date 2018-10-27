@@ -9,6 +9,8 @@
 #include "main.h"
 
 extern UART_HandleTypeDef hUart1;
+extern UART_HandleTypeDef hWifi;
+
 void UartInit();
 
 // uart Rx complete callback

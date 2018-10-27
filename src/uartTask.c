@@ -16,21 +16,26 @@ typedef struct {
     uint8_t *raw;
 } Command_t;
 
-void ExpUartTask(void const *arg);
-
 osPoolDef(cmdPool, 3, Command_t);
 osPoolId cmdPool;
 static osMessageQId uartQid = 0;
 static uint8_t rxBuf = 0;
 
-void ExpUartTask(void const *arg) {
+
+void initL5Lib() {
+    L5_LedInit();
+    L5_Lcd12864Init();
+    L5_Wifi_Init();
+}
+
+void TaskMain(void const *arg) {
     (void) arg;
+
+    initL5Lib();
 
     osEvent evt;
     Command_t *cmd;
 
-    L5_LedInit();
-    L5_Lcd12864Init();
     L5_Lcd12864SetPageFromBottom2Top();     // my lcd12864's screen is reverse.
     L5_Lcd12864CDisplayInvert();
     L5_Lcd12864ClearScreen();
@@ -58,7 +63,7 @@ void ExpUartTask(void const *arg) {
                     L5_LedToggle(Led1);
                     break;
                 case 0x02:
-                    L5_Lcd12864WriteString(0, 5, (char*)cmd->raw);
+                    L5_Lcd12864WriteString(0, 5, (char *) cmd->raw);
                     vPortFree(cmd->raw);
                     break;
                 default:

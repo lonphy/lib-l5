@@ -65,14 +65,11 @@ typedef struct {
 
 typedef struct {
     HAL_LockTypeDef Lock; // used to lock instance;
-    UART_HandleTypeDef *hUart;
 } L5_Wifi_DrvTypeDef;
-
-
 
 /* ---- export functions ------------------ */
 // 初始化WIFI串口驱动
-HAL_StatusTypeDef L5_Wifi_Init(L5_Wifi_DrvTypeDef *h);
+HAL_StatusTypeDef L5_Wifi_Init();
 
 // WIFI模块重置(重启)
 HAL_StatusTypeDef L5_Wifi_Reset(L5_Wifi_DrvTypeDef *h);

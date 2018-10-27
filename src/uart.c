@@ -5,24 +5,26 @@
 #include "uart.h"
 
 UART_HandleTypeDef hUart1;
+UART_HandleTypeDef hWifi;
 
-void UartInit() {
-    hUart1.Instance = USART1;
-    hUart1.Init.BaudRate = 115200;
-    hUart1.Init.WordLength = UART_WORDLENGTH_8B;
-    hUart1.Init.StopBits = UART_STOPBITS_1;
-    hUart1.Init.Parity = UART_PARITY_NONE;
-    hUart1.Init.Mode = UART_MODE_TX_RX;
-    hUart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
-    hUart1.Init.OverSampling = UART_OVERSAMPLING_16;
 
-    if (HAL_UART_Init(&hUart1) != HAL_OK) {
+static inline void uartInit(UART_HandleTypeDef *h, USART_TypeDef *usart, uint32_t baudRate, IRQn_Type ir) {
+    h->Instance = usart;
+    h->Init.BaudRate = baudRate;
+    h->Init.Mode = UART_MODE_TX_RX;
+
+    if (HAL_UART_Init(h) != HAL_OK) {
         Error_Handler();
     }
 
     // enable Usart1 interrupt
-    HAL_NVIC_SetPriority(USART1_IRQn, 15, 0);
-    HAL_NVIC_EnableIRQ(USART1_IRQn);
+    HAL_NVIC_SetPriority(ir, 15, 0);
+    HAL_NVIC_EnableIRQ(ir);
+}
+
+void UartInit() {
+    uartInit(&hUart1, USART1, 115200, USART1_IRQn);
+    uartInit(&hWifi, USART2, 115200, USART2_IRQn);
 
     /* DMA interrupt configuration */
 //    HAL_NVIC_SetPriority(DMA1_Channel4_IRQn, 1, 1);
@@ -61,6 +63,18 @@ void HAL_UART_MspInit(UART_HandleTypeDef *hUart) {
 //        }
 //
 //        __HAL_LINKDMA(&hUart1, hdmatx, tx1Dma);
+    } else if (hUart->Instance == USART2) {
+        __HAL_RCC_USART2_CLK_ENABLE();
+        gpioOpt.Pin = GPIO_PIN_2;
+        gpioOpt.Mode = GPIO_MODE_AF_PP;
+        gpioOpt.Speed = GPIO_SPEED_FREQ_HIGH;
+        HAL_GPIO_Init(GPIOA, &gpioOpt);
+
+        // Not required in other STM32 series, eg F407, H743
+        gpioOpt.Pin = GPIO_PIN_3;
+        gpioOpt.Mode = GPIO_MODE_INPUT;
+        gpioOpt.Pull = GPIO_NOPULL;
+        HAL_GPIO_Init(GPIOA, &gpioOpt);
     }
 }
 
@@ -69,6 +83,10 @@ void HAL_UART_MspDeInit(UART_HandleTypeDef *hUart) {
         __HAL_RCC_USART1_CLK_DISABLE();
         HAL_GPIO_DeInit(GPIOA, GPIO_PIN_9 | GPIO_PIN_10);
         HAL_NVIC_DisableIRQ(USART1_IRQn);
+    } else if (hUart->Instance == USART2) {
+        __HAL_RCC_USART1_CLK_DISABLE();
+        HAL_GPIO_DeInit(GPIOA, GPIO_PIN_2 | GPIO_PIN_3);
+        HAL_NVIC_DisableIRQ(USART2_IRQn);
     }
 }
 

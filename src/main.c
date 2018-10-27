@@ -1,30 +1,17 @@
 #include "main.h"
 #include <stm32f1xx_hal.h>
 #include <cmsis_os.h>
+#include <lib_l5.h>
+
 #include "uart.h"
 #include "crc.h"
 #include "gpio.h"
 
-void SystemClock_Config(void);
 
-void MX_FREERTOS_Init(void);
+void TaskMain(void const *arg);
 
-int main(void) {
-    HAL_Init();
-    SystemClock_Config();
-    MX_GPIO_Init();
-//    MX_CRC_Init();
-    UartInit();
-    MX_FREERTOS_Init();
+void TaskParser(const void *arg);
 
-    osKernelStart();
-    return 0;
-}
-
-/**
-  * @brief System Clock Configuration
-  * @retval None
-  */
 void SystemClock_Config(void) {
 
     RCC_OscInitTypeDef RCC_OscInitStruct;
@@ -70,5 +57,25 @@ void SystemClock_Config(void) {
 void _Error_Handler(char *file, int line) {
     UNUSED(file);
     UNUSED(line);
+    L5_LedOn(Led1);
     while (1) {}
+}
+
+int main(void) {
+    HAL_Init();
+    {
+        SystemClock_Config();
+        MX_GPIO_Init();
+        MX_CRC_Init();
+        UartInit();
+    }
+    {
+        osThreadDef(main, TaskMain, osPriorityNormal, 0, 1024);
+        osThreadCreate(osThread(main), NULL);
+
+        osThreadDef(parser, TaskParser, osPriorityNormal, 1, 512);
+        osThreadCreate(osThread(parser), NULL);
+    }
+    osKernelStart();
+    return 0;
 }

@@ -13,7 +13,7 @@ extern "C" {
 
 /* #define L5_USE_CONSOLE */
 #define L5_USE_LED
-/* #define L5_USE_ESP8266 */
+#define L5_USE_ESP8266
 /* #define L5_USE_LCD1602 */
 #define L5_USE_LCD12864
 
