@@ -28,14 +28,20 @@
 		async open(path, config) {
 			return new Promise(function(resolve, reject) {
 				chrome.serial.connect(path, config, (info) => {
-					switch (info.connectionId) {
-						case - 1:
-							reject();
-							break;
-						default:
-							console.info(`connect to ${path} success:`, info);
-							resolve(info.connectionId);
+					console.trace(info);
+					if (info) {
+						switch (info.connectionId) {
+							case - 1:
+								reject();
+								break;
+							default:
+								console.info(`connect to ${path} success:`, info);
+								resolve(info.connectionId);
+						}
+					} else {
+						reject({err:'无返回值'});
 					}
+
 				});
 			});
 		},

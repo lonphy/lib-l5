@@ -11,11 +11,12 @@ extern "C" {
 
 #include "main.h"
 
-/* #define L5_USE_CONSOLE */
+/* #define L5_USE_ITM_CONSOLE */
 #define L5_USE_LED
 #define L5_USE_ESP8266
 /* #define L5_USE_LCD1602 */
-#define L5_USE_LCD12864
+/* #define L5_USE_LCD12864 */
+/* #define L5_USE_OLED */
 
 /*------------ LCD1602 config -------------- */
 #ifdef L5_USE_LCD1602
@@ -29,6 +30,17 @@ extern "C" {
 #define LCD1602_RW_PIN       GPIO_PIN_2 // PB2
 #endif
 /*------------ LCD1602 config -------------- */
+/*------------ ESP8266 config -------------- */
+#ifdef L5_USE_ESP8266
+#define ESP8266_USART     USART2_BASE
+#define ESP8266_BAUD_RATE 115200
+#define ESP8266_GPIO      GPIOA
+#define ESP8266_Tx        GPIO_PIN_2
+#define ESP8266_Rx        GPIO_PIN_3
+#define AP_SSID           "ChinaNet-l5-client"
+#define AP_PWD            "lonphy0814"
+#endif
+/*------------ ESP8266 config -------------- */
 
 /*------------ LCD12864 config -------------- */
 #ifdef L5_USE_LCD12864
@@ -46,15 +58,9 @@ extern "C" {
 
 /*------------ LED config -------------- */
 #ifdef L5_USE_LED
-#define LED_GPIO GPIOB
-#define LED_LED1_PIN GPIO_PIN_4 // PB3
-
-#if 0
-// TODO: Just for testing.
-#define LED_GPIO GPIOA
-#define LED_LED1_PIN GPIO_PIN_8  // PA8
-#define LED_LED2_PIN GPIO_PIN_11  // PA11
-#endif
+#define LED_GPIO GPIOF
+#define LED_LED1_PIN GPIO_PIN_9 // PF9
+#define LED_LED2_PIN GPIO_PIN_10 // PF10
 
 #endif
 /*------------ LED config -------------- */

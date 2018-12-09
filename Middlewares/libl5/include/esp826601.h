@@ -1,111 +1,196 @@
 #ifndef __LIB_L5_ESP8266_01_H__
 #define __LIB_L5_ESP8266_01_H__
 
+#include "mcu.h"
+#include <cmsis_os.h>
 
-#ifdef L5_USE_ESP8266
+typedef enum wifi_ap_err_t {
+    ap_err_ok,
+    ap_err_no_connect,
+    ap_err_timeout,
+    ap_err_not_found,
+    ap_err_connect_faild,
+    ap_err_parse,
+} wifi_ap_err_t;
 
-#include <stdio.h>
+typedef enum wifi_err_t {
+    wifi_ok,
+    wifi_timeout,
+    wifi_invalid_param,
+    wifi_rx_error,
+    wifi_error,
+    wifi_invalid_response,
+    wifi_reserved,
+} wifi_err_t;
 
-// 1000ms = 1s 默认读写超时
-#define __L5_ESP8266_TIMEOUT 2000
+typedef enum wifi_state_t {
+    wifi_idle,
+    wifi_tx,
+    wifi_rx,
+    wifi_parse,
+} wifi_state_t;
 
-#define WifiLog(f, ...) printf("[l5_esp8266:%s] " f "\n", __FUNCTION__, ##__VA_ARGS__)
-
-/* --------------- at command defines ------------------------- */
-#define CMD_AT                  (uint8_t *)"AT\r\n"
-#define CMD_AT_SIZE             4
-#define CMD_GMR                 (uint8_t *)"AT+GMR\r\n"
-#define CMD_GMR_SIZE            8
-#define CMD_RESET               (uint8_t *)"AT+RST\r\n"
-#define CMD_RESET_SIZE          8
-#define CMD_MODE_QUERY          (uint8_t *)"AT+CWMODE?\r\n"
-#define CMD_MODE_QUERY_SIZE     12
-#define CMD_MODE_SET_TPL        (const char *)"AT+CWMODE=%d\r\n"
-#define CMD_MODE_SET_SIZE       13
-#define CMD_JOIN_AP_QUERY       (uint8_t *)"AT+CWJAP?\r\n"
-#define CMD_JOIN_AP_QUERY_SIZE  11
-#define CMD_JOIN_AP_TPL         (const char *)"AT+CWJAP=%s,%s\r\n"
-#define CMD_JOIN_AP_SIZE        128
-#define CMD_LIST_AP             (uint8_t *)"AT+CWLAP=\r\n"
-#define CMD_LIST_AP_SIZE        11
-#define CMD_LEAVE_AP            (uint8_t *)"AT+CWQAP\r\n"
-#define CMD_LEAVE_AP_SIZE       10
-#define CMD_HOTSPOT_QUERY       (uint8_t *)"AT+CWSAP?\r\n"
-#define CMD_HOTSPOT_QUERY_SIZE  11
-#define CMD_HOTSPOT_SET_TPL     (const char *)"AT+CWSAP=%s,%s,%d,%d\r\n"
-#define CMD_HOTSPOT_SET_TPL_SIZE 128
-#define CMD_LIST_CLIENT_IP      (uint8_t *)"AT+CWLIF\r\n"
-#define CMD_LIST_CLIENT_IP_SIZE 10
-/* --------------- at command defines ------------------------- */
+// 加密方式
+typedef enum wifi_enc_t {
+    enc_open,
+    enc_wep,
+    enc_wpa_psk,
+    enc_wpa2_psk,
+    enc_wpa_wpa2_psk,
+    enc_wpa2_enterprise,
+} wifi_enc_t;
 
 // wifi工作模式
-typedef enum {
-    CWM_Unknown = 0,
-    CWM_Station,
-    CWM_AP,
-    CWM_StationAndAP,
-} L5_Wifi_WorkMode;
-
-
-// 传输加密类型
-typedef enum {
-    Enc_Open = 0,
-    Enc_WPA_PSK = 2,
-    Enc_WPA2_PSK,
-    Enc_WPA_WPA2_PSK,
-} L5_Wifi_EncType;
+typedef enum wifi_work_mode_t {
+    work_mode_unknown = 0,
+    work_mode_station,
+    work_mode_ap,
+    work_mode_station_and_ap,
+} wifi_work_mode_t;
 
 // 热点配置信息
+typedef struct wifi_hotspot_t {
+    uint8_t    max_conn:3;    /* 最大接入client数量 1~4 */
+    uint8_t    ssid_hidden:1; /* 是否隐藏 ssid */
+    uint8_t    channel;
+    wifi_enc_t enc;
+    char       ssid[32];
+    char       pwd[65];
+} wifi_hotspot_t;
+
+/* ap info */
 typedef struct {
-    char *SSID;
-    char *Pwd;
-    uint8_t Channel;
-    L5_Wifi_EncType EncType;
-} L5_Wifi_HOTSPOT_InitTypeDef;
+    uint8_t       wps:1;
+    uint8_t       bgn:3;
+    wifi_enc_t    enc:3;
+    uint8_t       channel;
+    int8_t        rssi; /* 信号强度 */
+    wifi_ap_err_t err;
+    char          ssid[32];
+    char          mac[17]; /* AP的mac地址16字节  */
+} wifi_ap_t;
+
+/* 本地IP信息 */
+typedef struct {
+    uint8_t  mask;
+    uint32_t ip;
+    uint32_t gateway;
+} wifi_sta_ip_t;
+
+#define exec_rx_buf_size 64U
 
 typedef struct {
-    HAL_LockTypeDef Lock; // used to lock instance;
-} L5_Wifi_DrvTypeDef;
+    const char   *active_command; // current at command
+    osMutexId    lock;
+    wifi_err_t   err;      // current at command exec result code
+    wifi_state_t status;
+
+    /* for rx */
+    uint8_t       *rx_buf;       /* 接收缓冲 */
+    uint16_t      rx_buf_size;   /* 接收缓冲大小 */
+    __IO uint16_t rx_count;      /* 已经接收的数据量 */
+
+    /* for tx */
+    const uint8_t *tx_buf;       /* 发送缓冲 */
+    uint16_t      tx_buf_size;   /* 发送缓冲大小 */
+    __IO uint16_t tx_count;      /* 已经发送的数据量 */
+
+    osSemaphoreId tc_semaphore;            /* 发送完成信号量 */
+    osSemaphoreId parse_semaphore;         /* 响应解析信号量 */
+
+    uint8_t  exec_rx_buf[exec_rx_buf_size]; /* 单独执行命令 结果缓冲 */
+    uint16_t tx_timeout;                    /* 发送超时时间 ms */
+    uint16_t rx_timeout;                    /* 接收超时时间 ms */
+} wifi_t;
+
+
+/* ------------------ network --------------- */
+
+typedef enum net_status_t {
+    ns_unknow,
+    ns_ap_connected = 2,
+    ns_tcp_udp_connected,
+    ns_tcp_udp_disconnected,
+    ns_ap_not_connect
+} net_status_t;
+
+typedef enum net_type_t {
+    net_tcp,
+    net_udp,
+    net_ssl,
+} net_type_t;
+/* ------------------ network --------------- */
+
+
 
 /* ---- export functions ------------------ */
-// 初始化WIFI串口驱动
-HAL_StatusTypeDef L5_Wifi_Init();
+// init esp8266
+wifi_err_t l5_wifi_init(uint16_t tx_timeout, uint16_t rx_timeout);
 
 // WIFI模块重置(重启)
-HAL_StatusTypeDef L5_Wifi_Reset(L5_Wifi_DrvTypeDef *h);
+wifi_err_t l5_wifi_reset();
 
 // 获取WIFI模块信息
-HAL_StatusTypeDef L5_Wifi_GetVersion(L5_Wifi_DrvTypeDef *h, uint8_t *buf, uint16_t buf_len);
+wifi_err_t l5_wifi_get_version(uint8_t *versionInfo, uint16_t versionInfoSize);
 
 // 获取当前工作模式
-L5_Wifi_WorkMode L5_Wifi_GetWorkMode(L5_Wifi_DrvTypeDef *h);
+wifi_work_mode_t l5_wifi_get_work_mode();
 
 // 设置当前工作模式
-HAL_StatusTypeDef L5_Wifi_SetWorkMode(L5_Wifi_DrvTypeDef *h, L5_Wifi_WorkMode mode);
+wifi_err_t l5_wifi_set_work_mode(wifi_work_mode_t mode);
 
-HAL_StatusTypeDef L5_Wifi_Ping(L5_Wifi_DrvTypeDef *h);
+wifi_err_t l5_wifi_ping();
 
 // 获取当前加入的AP
-HAL_StatusTypeDef L5_Wifi_GetJoinedAP(L5_Wifi_DrvTypeDef *h, char *ssid, uint16_t bufLen);
+void l5_wifi_get_joined_ap(wifi_ap_t *ap);
 
 // 加入给定AP
-HAL_StatusTypeDef L5_Wifi_JoinAP(L5_Wifi_DrvTypeDef *h, const char *ssid, const char *pwd);
+wifi_err_t l5_wifi_join_ap(const char *ssid, const char *pwd);
+
+// 获取当前Station的本地IP地址、网关、掩码信息
+wifi_err_t l5_wifi_get_sta_ip(wifi_sta_ip_t *ip);
 
 // 查询所有可用AP
-HAL_StatusTypeDef L5_Wifi_GetAPList(L5_Wifi_DrvTypeDef *h);
+wifi_err_t l5_wifi_scan_ap_list(wifi_ap_t list[], uint8_t limit);
 
 // 与当前连接AP断开连接
-HAL_StatusTypeDef L5_Wifi_LeaveAp(L5_Wifi_DrvTypeDef *h);
+wifi_err_t l5_wifi_exit_ap();
 
 // 获取WIFI热点配置信息
-HAL_StatusTypeDef L5_Wifi_GetHotspot(L5_Wifi_DrvTypeDef *h, L5_Wifi_HOTSPOT_InitTypeDef *opt);
+wifi_err_t l5_wifi_get_hotspot(wifi_hotspot_t *opt);
 
 // 设置WIFI热点配置信息
-HAL_StatusTypeDef L5_Wifi_SetHotspot(L5_Wifi_DrvTypeDef *h, L5_Wifi_HOTSPOT_InitTypeDef *opt);
+wifi_err_t l5_wifi_set_hotspot(wifi_hotspot_t *opt);
 
 // 获取接入设备的IP列表
-HAL_StatusTypeDef L5_Wifi_GetClientIPList(L5_Wifi_DrvTypeDef *h, char *buf, uint16_t bufSize);
+wifi_err_t l5_wifi_get_client_ip_list(char *buf, uint16_t bufSize);
 
-#endif // L5_USE_ESP8266
+// 查询wifi状态
+net_status_t l5_wifi_net_status();
+
+// 域名反解析
+wifi_err_t   l5_net_domain(const char * domain, uint32_t * ipv4);
+
+/**
+ * 连接TCP网络
+ *
+ * @param {net_type_t} typ 连接类型
+ * @param {const char *} domain 连接域名或ip地址
+ * @param {uint16_t} port 连接端口
+ * @param {uint16_t} keep_alive  连接保持侦测时间， 0-关闭 1~7200s
+ * @return
+ */
+wifi_err_t   l5_tcp_dial(const char * domain, uint16_t port, uint16_t keep_alive);
+
+/**
+ * TCP 发送数据
+ * @param buf   发送数据缓冲
+ * @param buf_len 缓冲长度
+ * @return
+ */
+wifi_err_t l5_tcp_write(const void * buf, uint16_t buf_len);
+
+// 关闭TCP连接
+wifi_err_t l5_tcp_close(void);
 
 #endif // __LIB_L5_ESP8266_01_H__

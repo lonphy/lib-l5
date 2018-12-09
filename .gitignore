@@ -18,6 +18,10 @@
 /Drivers/CMSIS/DSP_Lib/
 /Drivers/CMSIS/Lib/
 /Drivers/CMSIS/RTOS/
-/Drivers/CMSIS/Device/ST/STM32F1xx/Source/
 
+# Middlewares
+/Middlewares/ST/
+/Middlewares/Third_Party/FatFs/
+/Middlewares/Third_Party/LibJPEG/
+/Middlewares/Third_Party/LwIP/
 

@@ -1,0 +1,17 @@
+{
+	"version": "1.0.0",
+	"name": "STM32 USB",
+	"main": "app.html",
+	"window": {
+		"title": "L5 STM32 USB",
+		"toolbar": true,
+		"frame": true,
+		"show_in_taskbar": true,
+		"width": 780,
+		"height": 480,
+		"position": "center",
+		"min_width": 780,
+		"min_height": 480
+	},
+	"nodejs": true
+}

@@ -29,13 +29,13 @@ typedef enum {
     LedN
 } LedType;
 
-void L5_LedInit(void);
+void l5_led_init(void);
 
-void L5_LedOn(LedType led);
+void l5_led_on(LedType led);
 
-void L5_LedOff(LedType led);
+void l5_led_off(LedType led);
 
-void L5_LedToggle(LedType led);
+void l5_led_toggle(LedType led);
 
 #endif // L5_USE_LED
 

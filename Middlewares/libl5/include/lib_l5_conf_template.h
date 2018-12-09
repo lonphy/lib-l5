@@ -11,7 +11,7 @@ extern "C" {
 
 #include "main.h"
 
-#define L5_USE_CONSOLE
+#define L5_USE_ITM_CONSOLE
 #define L5_USE_LED
 #define L5_USE_ESP8266
 #define L5_USE_LCD1602

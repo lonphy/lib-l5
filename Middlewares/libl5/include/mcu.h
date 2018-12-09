@@ -15,9 +15,7 @@
 #include <stm32f4xx_hal.h>
 
 #elif defined(STM32H7)
-
-#include <stm32h7xx_hal.h>
-
+    #error not support
 #else
     #error no MCU specified
 #endif

@@ -17,7 +17,7 @@ const uint16_t led_pin[LedN] = {
 #endif
 };
 
-void L5_LedInit(void) {
+void l5_led_init(void) {
     GPIO_InitTypeDef gpioOpt;
     gpioOpt.Pin = 0;
 #ifdef LED_LED1_PIN
@@ -33,19 +33,19 @@ void L5_LedInit(void) {
     gpioOpt.Speed = GPIO_SPEED_FREQ_LOW;
     HAL_GPIO_Init(LED_GPIO, &gpioOpt);
 #ifdef LED_LED1_PIN
-    L5_LedOff(Led1);
+    l5_led_off(Led1);
 #endif
 }
 
-void L5_LedOn(LedType led) {
+void l5_led_on(LedType led) {
     HAL_GPIO_WritePin(LED_GPIO, led_pin[led], GPIO_PIN_SET);
 }
 
-void L5_LedOff(LedType led) {
+void l5_led_off(LedType led) {
     HAL_GPIO_WritePin(LED_GPIO, led_pin[led], GPIO_PIN_RESET);
 }
 
-void L5_LedToggle(LedType led) {
+void l5_led_toggle(LedType led) {
     HAL_GPIO_TogglePin(LED_GPIO, led_pin[led]);
 }
 
