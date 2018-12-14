@@ -62,6 +62,18 @@ const char simple_rsp_ok[] = "\r\nOK\r\n";
 #define __RAW_RCC_USARTx_CLK_DISABLE() __HAL_RCC_USART2_CLK_DISABLE()
 #define USARTx_IRQHandler              USART2_IRQHandler
 #define USARTx_IRQn                    USART2_IRQn
+#elif (ESP8266_USART == USART3_BASE)
+
+#define __RAW_RCC_USARTx_CLK_ENABLE()  __HAL_RCC_USART3_CLK_ENABLE()
+#define __RAW_RCC_USARTx_CLK_DISABLE() __HAL_RCC_USART3_CLK_DISABLE()
+#define USARTx_IRQHandler              USART3_IRQHandler
+#define USARTx_IRQn                    USART3_IRQn
+#elif (ESP8266_USART == UART4_BASE)
+
+#define __RAW_RCC_USARTx_CLK_ENABLE()  __HAL_RCC_UART4_CLK_ENABLE()
+#define __RAW_RCC_USARTx_CLK_DISABLE() __HAL_RCC_UART4_CLK_DISABLE()
+#define USARTx_IRQHandler              UART4_IRQHandler
+#define USARTx_IRQn                    UART4_IRQn
 #endif
 #endif
 /* ---------- config check ----------------------*/
@@ -479,7 +491,8 @@ wifi_err_t l5_wifi_get_hotspot(wifi_hotspot_t *opt) {
 // set soft ap config
 wifi_err_t l5_wifi_set_hotspot(wifi_hotspot_t *opt) {
     char *cmd_buf = pvPortMalloc(at_cwsap_set_tpl_size);
-    int real_cmd_len = sprintf(cmd_buf, at_cwsap_set_tpl, opt->ssid, opt->pwd, opt->channel, opt->enc, opt->max_conn, opt->ssid_hidden);
+    int real_cmd_len = sprintf(cmd_buf, at_cwsap_set_tpl, opt->ssid, opt->pwd, opt->channel, opt->enc, opt->max_conn,
+                               opt->ssid_hidden);
     esp8266_exec(cmd_buf, (uint16_t) real_cmd_len);
     vPortFree(cmd_buf);
     return esp8266.err;
@@ -500,7 +513,7 @@ wifi_err_t l5_wifi_get_client_ip_list(char *buf, uint16_t bufSize) {
 
 net_status_t l5_wifi_net_status() {
     char *buf = pvPortMalloc(128);
-    exp8266_query(at_cipstatus, at_cipstatus_size, (uint8_t *)buf, 128);
+    exp8266_query(at_cipstatus, at_cipstatus_size, (uint8_t *) buf, 128);
     if (esp8266.err != wifi_ok) {
         return ns_unknow;
     }
@@ -508,12 +521,12 @@ net_status_t l5_wifi_net_status() {
     return ns_ap_connected;
 }
 
-wifi_err_t   l5_net_domain(const char * domain, uint32_t * ipv4) {
+wifi_err_t l5_net_domain(const char *domain, uint32_t *ipv4) {
     // TODO: implement
     return wifi_ok;
 }
 
-wifi_err_t   l5_tcp_dial(const char * domain, uint16_t port, uint16_t keep_alive) {
+wifi_err_t l5_tcp_dial(const char *domain, uint16_t port, uint16_t keep_alive) {
     char *cmd_buf = pvPortMalloc(64);
     int real_cmd_len = sprintf(cmd_buf, "AT+CIPSTART=\"TCP\",\"%s\",%d,%d\r\n", domain, port, keep_alive);
     esp8266_exec(cmd_buf, (uint16_t) real_cmd_len);
@@ -521,10 +534,10 @@ wifi_err_t   l5_tcp_dial(const char * domain, uint16_t port, uint16_t keep_alive
     return esp8266.err;
 }
 
-wifi_err_t l5_tcp_write(const void * buf, uint16_t buf_len) {
+wifi_err_t l5_tcp_write(const void *buf, uint16_t buf_len) {
     char *cmd_buf = pvPortMalloc(32);
     int real_cmd_len = sprintf(cmd_buf, "AT+CIPSEND=%d\r\n", buf_len);
-    _esp8266_exec(cmd_buf, (uint16_t)real_cmd_len, "\r\n> ");
+    _esp8266_exec(cmd_buf, (uint16_t) real_cmd_len, "\r\n> ");
     vPortFree(cmd_buf);
 
     if (esp8266.err != wifi_ok) {
@@ -568,7 +581,7 @@ static inline void ll_gpio_init() {
     gpioOpt.Speed = GPIO_SPEED_FREQ_HIGH;
 #ifdef STM32F4
     gpioOpt.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
-    gpioOpt.Alternate = GPIO_AF7_USART2;
+    gpioOpt.Alternate = GPIO_AF7_USART2; /* FIXME~ */
 #endif
     HAL_GPIO_Init(ESP8266_GPIO, &gpioOpt);
 #ifdef STM32F1
@@ -637,7 +650,7 @@ static inline void _esp8266_exec(const char *cmd, uint16_t cmd_len, const char *
 
     /* step5. compare suffix only */
     int rsp_len = strnlen((char *) esp8266.exec_rx_buf, exec_rx_buf_size - 1);
-    if (strncmp((char *) esp8266.exec_rx_buf + (rsp_len-strlen(rsp_suffix)), rsp_suffix, strlen(rsp_suffix)) != 0) {
+    if (strncmp((char *) esp8266.exec_rx_buf + (rsp_len - strlen(rsp_suffix)), rsp_suffix, strlen(rsp_suffix)) != 0) {
         esp8266.err = wifi_error;
     }
 
