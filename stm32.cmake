@@ -1,7 +1,7 @@
 include(CMakeForceCompiler)
 
-set(DEVICE_ID STM32F407ZGTx)
-#set(DEVICE_ID STM32F103C8Tx)
+#set(DEVICE_ID STM32F407ZGTx)
+set(DEVICE_ID STM32F103RCTx)
 
 ##########################################################################################
 set(CMAKE_SYSTEM_NAME  Generic)
@@ -37,9 +37,10 @@ macro(set_mcu_info id)
         set(MCU_FLAG "${MCU_FLAG} -mcpu=cortex-m7")
     endif ()
 
-
     if (${MCU_FLASH_SIZE} STREQUAL "8")
         set(MCU_REF       ${MCU_NAME}xB)
+    elseif (${MCU_FLASH_SIZE} STREQUAL "C")
+        set(MCU_REF       ${MCU_NAME}xE)
     elseif (${MCU_FLASH_SIZE} STREQUAL "G")
         set(MCU_REF       ${MCU_NAME}xx)
     elseif (${MCU_FLASH_SIZE} STREQUAL "I")
@@ -47,12 +48,13 @@ macro(set_mcu_info id)
     endif ()
     unset(MCU_FLASH_SIZE)
 
-    set(MCU_SERIES ${MCU_FAMILY}xx)
-
-    set(LINKER_SCRIPT     ${PROJECT_SOURCE_DIR}/util/${DEVICE_ID}_FLASH.ld)
+    set(MCU_SERIES        ${MCU_FAMILY}xx)
+    set(DRIVER_TPL_ROOT   ${PROJECT_SOURCE_DIR}/Drivers/CMSIS/Device/ST/${MCU_SERIES}/Source/Templates/gcc/)
     set(STARTUP_FILE      startup_${MCU_REF}.s)
     string(TOLOWER        ${STARTUP_FILE} STARTUP_FILE)
-    set(STARTUP_FILE      ${PROJECT_SOURCE_DIR}/util/${STARTUP_FILE})
+    set(STARTUP_FILE      ${DRIVER_TPL_ROOT}/${STARTUP_FILE})
+    set(LINKER_SCRIPT     ${PROJECT_SOURCE_DIR}/util/${DEVICE_ID}_FLASH.ld)
+
 endmacro(set_mcu_info)
 
 # 这只编译器信息

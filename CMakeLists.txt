@@ -144,10 +144,10 @@ set(SOURCE_FILES
 # clear all template files
 list(FILTER SOURCE_FILES EXCLUDE REGEX .*_template\\.[hc]$)
 
-set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-Map=${PROJECT_SOURCE_DIR}/build/${PROJECT_NAME}_${MCU_NAME}.map,--cref -g -gdwarf-2")
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-Map=${PROJECT_SOURCE_DIR}/build/${PROJECT_NAME}_${DEVICE_ID}.map,--cref -g -gdwarf-2")
 
-set(ELF_FILE ${PROJECT_NAME}_${MCU_NAME}.elf)
-set(BIN_FILE ${PROJECT_SOURCE_DIR}/build/${PROJECT_NAME}_${MCU_NAME}.bin)
+set(ELF_FILE ${PROJECT_NAME}_${DEVICE_ID}.elf)
+set(BIN_FILE ${PROJECT_SOURCE_DIR}/build/${PROJECT_NAME}_${DEVICE_ID}.bin)
 
 include_directories(${USER_INC} ${inc_dir})
 

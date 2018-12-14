@@ -128,7 +128,7 @@ void system_clock_config(void) {
 
         RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
 #ifdef STM32F1
-        #define FLASH_LATENCY_x FLASH_LATENCY_2
+#define FLASH_LATENCY_x FLASH_LATENCY_2
         RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
         RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
 #elif STM32F4
