@@ -1,4 +1,5 @@
 #include "lib_l5.h"
+
 #include <string.h>
 #include <stdlib.h>
 
@@ -48,7 +49,8 @@ const char simple_rsp_ok[] = "\r\nOK\r\n";
 /* ---------- config check ----------------------*/
 #ifndef ESP8266_USART
 #error ESP8266_USART not configed
-#else
+#endif
+
 #define ESP8266_USARTx             ((USART_TypeDef *)ESP8266_USART)
 #if (ESP8266_USART == USART1_BASE)
 
@@ -74,8 +76,29 @@ const char simple_rsp_ok[] = "\r\nOK\r\n";
 #define __RAW_RCC_USARTx_CLK_DISABLE() __HAL_RCC_UART4_CLK_DISABLE()
 #define USARTx_IRQHandler              UART4_IRQHandler
 #define USARTx_IRQn                    UART4_IRQn
+
+/* for usart tx dma */
+#define USARTx_DMAx                    DMA2
+#define USARTx_Tx_DMA_Channel          5
+#define USARTx_Tx_DMA_Channelx         DMA2_Channel5
+#define USARTx_DMA_IRQn                DMA2_Channel4_5_IRQn
+#define USARTx_DMA_Tx_IRQHandler       DMA2_Channel4_5_IRQHandler
+
+#define USARTx_Rx_DMA_Channel          3
+#define USARTx_Rx_DMA_Channelx         DMA2_Channel3
+#define USARTx_Rx_DMA_IRQn             DMA2_Channel3_IRQn
+#define USARTx_Rx_DMA_IRQHandler       DMA2_Channel3_IRQHandler
+
+#define __RAW_RCC_DMAx_CLK_ENABLE()    __HAL_RCC_DMA2_CLK_ENABLE()
+#define __RAW_RCC_DMAx_CLK_DISABLE()   __HAL_RCC_DMA2_CLK_DISABLE()
 #endif
-#endif
+
+/* helper marcos for dma */
+#define __DMA_GIFx_IDX                 (1 << ((USARTx_Tx_DMA_Channel - 1) * 4 - 1))
+#define __DMA_TCIFx_IDX                (__DMA_GIFx_IDX << 1 )
+#define __DMA_HTIFx_IDX                (__DMA_TCIFx_IDX << 1)
+#define __DMA_TEIFx_IDX                (__DMA_HTIFx_IDX << 1)
+
 /* ---------- config check ----------------------*/
 
 static wifi_t esp8266;
@@ -157,29 +180,40 @@ void USARTx_IRQHandler(void) {
         }
         return;
     } /* End if some error occurs */
+}
 
-    /* tx register empty it, send data */
-    if (((sr & USART_SR_TXE) != 0) && ((cr1 & USART_CR1_TXEIE) != 0)) {
-        /* require: tx status */
-        if (esp8266.status == wifi_tx) {
-            ESP8266_USARTx->DR = (uint8_t) (*(esp8266.tx_buf++) & 0xff);
-            if (--esp8266.tx_count == 0U) {
-                CLEAR_BIT(ESP8266_USARTx->CR1, USART_CR1_TXEIE);
-                SET_BIT(ESP8266_USARTx->CR1, USART_CR1_TCIE);
-                return;
-            }
+/* IT handler for Tx DMA */
+void USARTx_DMA_Tx_IRQHandler(void) {
+    uint32_t flag_it = USARTx_DMAx->ISR;
+    uint32_t source_it = USARTx_Tx_DMA_Channelx->CCR;
+
+    /* Transfer Complete Interrupt management ***********************************/
+    if (((flag_it & __DMA_TCIFx_IDX) != RESET) && ((source_it & DMA_IT_TC) != RESET)) {
+        if ((USARTx_Tx_DMA_Channelx->CCR & DMA_CCR_CIRC) == 0U) {
+            /* disable the transfer complete and error interrupt */
+            CLEAR_BIT(USARTx_Tx_DMA_Channelx->CCR, DMA_CCR_TCIE | DMA_CCR_TEIE | DMA_IT_HT);
         }
-        return;
+        USARTx_DMAx->IFCR = __DMA_TCIFx_IDX; /* Clear the transfer complete flag */
+        osSemaphoreRelease(esp8266.tc_semaphore);
     }
 
-    /* tx complete */
-    if (((sr & USART_SR_TC) != 0) && ((cr1 & USART_CR1_TCIE) != 0)) {
-        CLEAR_BIT(ESP8266_USARTx->CR1, USART_CR1_TCIE);
+        /* Transfer Error Interrupt management **************************************/
+    else if ((RESET != (flag_it & (__DMA_TEIFx_IDX))) && (RESET != (source_it & DMA_IT_TE))) {
+        /* When a DMA transfer error occurs */
+        /* A hardware clear of its EN bits is performed */
+        /* Disable ALL DMA IT */
+        CLEAR_BIT(USARTx_Tx_DMA_Channelx->CCR, DMA_CCR_TCIE | DMA_CCR_TEIE | DMA_IT_HT);
+        USARTx_DMAx->IFCR = __DMA_GIFx_IDX; /* Clear all flags */
+
+        esp8266.err = wifi_tx_error;
         osSemaphoreRelease(esp8266.tc_semaphore);
-        return;
     }
 }
 
+/* IT handler for Rx DMA */
+void USARTx_Rx_DMA_IRQHandler(void) {
+
+}
 
 __used static void ll_usart_deinit() {
     __RAW_RCC_USARTx_CLK_DISABLE();
@@ -598,7 +632,35 @@ static void ll_usart_init() {
 
     ll_gpio_init();
 
+    {/* configure tx DMA */
+        __RAW_RCC_DMAx_CLK_ENABLE();
 
+        USARTx_Tx_DMA_Channelx->CCR = (DMA_MEMORY_TO_PERIPH |
+                                       DMA_PINC_DISABLE |
+                                       DMA_MINC_ENABLE |
+                                       DMA_PDATAALIGN_BYTE |
+                                       DMA_MDATAALIGN_BYTE |
+                                       DMA_NORMAL |
+                                       DMA_PRIORITY_MEDIUM);
+
+        /* DMA interrupt init and configuration */
+        HAL_NVIC_SetPriority(USARTx_DMA_IRQn, 14, 0);
+        HAL_NVIC_EnableIRQ(USARTx_DMA_IRQn);
+    }
+
+    {/* configure rx DMA */
+        USARTx_Rx_DMA_Channelx->CCR = (DMA_PERIPH_TO_MEMORY |
+                                       DMA_PINC_DISABLE |
+                                       DMA_MINC_ENABLE |
+                                       DMA_PDATAALIGN_BYTE |
+                                       DMA_MDATAALIGN_BYTE |
+                                       DMA_NORMAL |
+                                       DMA_PRIORITY_HIGH);
+
+        /* DMA interrupt init and configuration */
+        HAL_NVIC_SetPriority(USARTx_Rx_DMA_IRQn, 14, 0);
+        HAL_NVIC_EnableIRQ(USARTx_Rx_DMA_IRQn);
+    }
     /* Disable the uart peripheral */
     CLEAR_REG(ESP8266_USARTx->CR1);
     CLEAR_REG(ESP8266_USARTx->CR2);
@@ -686,14 +748,30 @@ static inline void exp8266_query(const char *cmd, uint16_t cmdSize, uint8_t *buf
 /* low level uart tx */
 static inline void ll_usart_transmit(const char *buf, uint16_t buf_size) {
     esp8266.active_command = buf;
-    esp8266.tx_buf = (const uint8_t *) buf;
-    esp8266.tx_buf_size = buf_size;
-    esp8266.tx_count = buf_size;
     esp8266.err = wifi_ok;
     esp8266.status = wifi_tx;
 
-    /* Enable the UART Transmit data register empty Interrupt */
-    SET_BIT(ESP8266_USARTx->CR1, USART_CR1_TXEIE);
+    /* Disable the peripheral */
+    CLEAR_BIT(USARTx_Tx_DMA_Channelx->CCR, DMA_CCR_EN);
+
+    /* Configure the source, destination address and the data length & clear flags*/
+    {
+        USARTx_DMAx->IFCR = __DMA_GIFx_IDX; /* Clear all flags */
+        USARTx_Tx_DMA_Channelx->CNDTR = buf_size; /* Configure DMA Channel data length */
+        USARTx_Tx_DMA_Channelx->CPAR = (uint32_t) (&ESP8266_USARTx->DR); /* Configure DMA Channel destination address */
+        USARTx_Tx_DMA_Channelx->CMAR = (uint32_t) buf;        /* Configure DMA Channel source address */
+    }
+
+
+    CLEAR_BIT(USARTx_Tx_DMA_Channelx->CCR, DMA_CCR_HTIE); /* disable half transfer it */
+    SET_BIT(USARTx_Tx_DMA_Channelx->CCR,
+            DMA_CCR_TCIE | DMA_CCR_TEIE); /* enable the transfer complete it and error it */
+    SET_BIT(USARTx_Tx_DMA_Channelx->CCR, DMA_CCR_EN); /* enable the DMA channel */
+
+    CLEAR_BIT(ESP8266_USARTx->SR, UART_FLAG_TC); /* clear transmit complete flag */
+    /* enable the DMA transfer for transmit request by setting the DMAT bit in the UART CR3 register */
+    SET_BIT(ESP8266_USARTx->CR3, USART_CR3_DMAT);
+
 }
 
 /* low level uart rx */
@@ -705,10 +783,10 @@ static inline void ll_usart_receive(uint8_t *buf, uint16_t buf_size) {
 
     esp8266.status = wifi_rx;
 
-    /* open error it: (frame error, noise error, overrun error) */
+    /* enable error it: (frame error, noise error, overrun error) */
     SET_BIT(ESP8266_USARTx->CR3, USART_CR3_EIE);
 
-    /* open rx register not empty it and idle it */
+    /* enable rx not empty it and idle it */
     SET_BIT(ESP8266_USARTx->CR1, USART_CR1_RXNEIE | USART_CR1_IDLEIE);
 }
 

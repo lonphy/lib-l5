@@ -18,7 +18,7 @@ const uint16_t led_pin[LedN] = {
 };
 
 void l5_led_init(void) {
-    GPIO_InitTypeDef gpioOpt;
+    GPIO_InitTypeDef gpioOpt = {0};
     gpioOpt.Pin = 0;
 #ifdef LED_LED1_PIN
     gpioOpt.Pin |= LED_LED1_PIN;

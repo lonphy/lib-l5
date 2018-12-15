@@ -14,12 +14,8 @@ void hw_uart_init();
 
 // uart Rx complete callback
 void L5_UART1_RxCpltCallback(UART_HandleTypeDef *hUart);
-void L5_UART2_RxCpltCallback(UART_HandleTypeDef *hUart);
-void L5_UART3_RxCpltCallback(UART_HandleTypeDef *hUart);
 
 // uart Err callback
 void L5_UART1_ErrorCallback(UART_HandleTypeDef *hUart);
-void L5_UART2_ErrorCallback(UART_HandleTypeDef *hUart);
-void L5_UART3_ErrorCallback(UART_HandleTypeDef *hUart);
 
 #endif //RTOS_UART_H

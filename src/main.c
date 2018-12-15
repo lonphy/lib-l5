@@ -37,7 +37,6 @@ int main(void) {
 
         l5_led_init();
         l5_led_on(Led1);
-        l5_led_on(Led2);
 
         /* hw_i2c_init(); */
     }
@@ -92,8 +91,8 @@ void SysTick_Handler(void) {
 
 void system_clock_config(void) {
 
-    RCC_OscInitTypeDef RCC_OscInitStruct;
-    RCC_ClkInitTypeDef RCC_ClkInitStruct;
+    RCC_OscInitTypeDef RCC_OscInitStruct = {0};
+    RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
 
 #ifdef STM32F4
     __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);

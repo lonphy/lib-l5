@@ -20,6 +20,7 @@ typedef enum wifi_err_t {
     wifi_rx_error,
     wifi_error,
     wifi_invalid_response,
+    wifi_tx_error,
     wifi_reserved,
 } wifi_err_t;
 
@@ -89,11 +90,6 @@ typedef struct {
     uint8_t       *rx_buf;       /* 接收缓冲 */
     uint16_t      rx_buf_size;   /* 接收缓冲大小 */
     __IO uint16_t rx_count;      /* 已经接收的数据量 */
-
-    /* for tx */
-    const uint8_t *tx_buf;       /* 发送缓冲 */
-    uint16_t      tx_buf_size;   /* 发送缓冲大小 */
-    __IO uint16_t tx_count;      /* 已经发送的数据量 */
 
     osSemaphoreId tc_semaphore;            /* 发送完成信号量 */
     osSemaphoreId parse_semaphore;         /* 响应解析信号量 */
