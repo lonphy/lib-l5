@@ -13,7 +13,11 @@
 #define tcp_server_ip   "192.168.1.17"
 #define tcp_server_port 8899
 
+
+
 void task_wifi(__unused void const *arg) {
+
+
     wifi_err_t err;
 
     /* init Wifi */
@@ -93,18 +97,23 @@ void task_wifi(__unused void const *arg) {
         }
         wifi_log("tcp dial to %s:%d success", tcp_server_ip, tcp_server_port);
 
-        err = l5_tcp_write("123456", sizeof("123456"));
-        if (err != wifi_ok) {
-            Error_Handler();
-        }
-
-        err = l5_tcp_close();
-        if (err != wifi_ok) {
-            Error_Handler();
-        }
-        wifi_log("tcp connection closed");
     }
+#if 0
+    {/*test tx*/
+        char buf[1024] = {0};
+        memset(buf, 'A', 1024);
 
+        uint8_t n = 0;
+        while(1) {
+            buf[0] = n;
+            err = l5_tcp_write(buf, 1024);
+            if (err != wifi_ok) {
+                Error_Handler();
+            }
+            ++n;
+        }
+    }
+#endif
 
 
     osDelay(osWaitForever);

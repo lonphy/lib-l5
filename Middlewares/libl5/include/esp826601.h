@@ -24,12 +24,12 @@ typedef enum wifi_err_t {
     wifi_reserved,
 } wifi_err_t;
 
-typedef enum wifi_state_t {
-    wifi_idle,
-    wifi_tx,
-    wifi_rx,
-    wifi_parse,
-} wifi_state_t;
+typedef enum command_state_t {
+    command_idle,
+    command_tx,
+    command_rx,
+    command_dat,
+} command_state_t;
 
 // 加密方式
 typedef enum wifi_enc_t {
@@ -82,10 +82,12 @@ typedef struct {
 #define dma_rx_buf_size  1024U
 
 typedef struct {
-    const char   *active_command; // current at command
+    const char   *command;  /* current at command */
+    const char   *command_response; /* response for current at command*/
+    command_state_t state; /* current command state */
+
     osMutexId    lock;
     wifi_err_t   err;      // current at command exec result code
-    wifi_state_t status;
 
     /* for rx */
     uint8_t       current_buf_idx:4;           /* 当前接收缓冲 */
@@ -93,9 +95,11 @@ typedef struct {
     uint8_t       rx_buf[2][dma_rx_buf_size];  /* 接收缓冲 */
     uint16_t      rx_buf_size[2];              /* 缓冲已接收大小 */
 
-
-    osSemaphoreId tc_semaphore;            /* 发送完成信号量 */
-    osSemaphoreId parse_semaphore;         /* 响应解析信号量 */
+    TaskHandle_t  response_task;           /* task with response parse */
+    osSemaphoreId tc_sem;                  /* 信号量 - 发送完成     */
+    osSemaphoreId dat_sem;                 /* 信号量 - 收到一帧数据  */
+    osSemaphoreId parse_sem;               /* 信号量 - 可以开始解析  */
+    osMessageQId  dat_queue;               /* 队列 - 收到Server数据 */
 
     uint16_t tx_timeout;                    /* 发送超时时间 ms */
     uint16_t rx_timeout;                    /* 接收超时时间 ms */
@@ -117,6 +121,11 @@ typedef enum net_type_t {
     net_udp,
     net_ssl,
 } net_type_t;
+
+typedef struct net_dat_t{
+    uint16_t rawSize;
+    void *raw;
+} net_dat_t;
 /* ------------------ network --------------- */
 
 
@@ -160,35 +169,48 @@ wifi_err_t l5_wifi_get_hotspot(wifi_hotspot_t *opt);
 // 设置WIFI热点配置信息
 wifi_err_t l5_wifi_set_hotspot(wifi_hotspot_t *opt);
 
-// 获取接入设备的IP列表
+// Get Client IP list with connected, only in server mode
 wifi_err_t l5_wifi_get_client_ip_list(char *buf, uint16_t bufSize);
 
-// 查询wifi状态
+// Query Wi-Fi's status
 net_status_t l5_wifi_net_status();
 
-// 域名反解析
+// Get IPv4 for domain
 wifi_err_t   l5_net_domain(const char * domain, uint32_t * ipv4);
 
 /**
- * 连接TCP网络
+ * Dial TCP Connection
  *
- * @param {net_type_t} typ 连接类型
- * @param {const char *} domain 连接域名或ip地址
- * @param {uint16_t} port 连接端口
- * @param {uint16_t} keep_alive  连接保持侦测时间， 0-关闭 1~7200s
+ * @param {const char *} domain - server's domain or ip string
+ * @param {uint16_t} port - server's tcp port
+ * @param {uint16_t} keep_alive - tcp keep-alive, 0-disable, otherwise- enable [1~7200], unit:s
  * @return
  */
 wifi_err_t   l5_tcp_dial(const char * domain, uint16_t port, uint16_t keep_alive);
 
 /**
- * TCP 发送数据
- * @param buf   发送数据缓冲
- * @param buf_len 缓冲长度
+ * Send Data with TCP with block mode
+ *
+ * @param {const void *} buf - the buffer to be send
+ * @param {uint16_t} buf_len - buffer size
  * @return
  */
 wifi_err_t l5_tcp_write(const void * buf, uint16_t buf_len);
 
-// 关闭TCP连接
+/**
+ * Read TCP Data with block mode
+ *
+ * - callee must free buf, it's allocated in low level
+ * - user should read data in real-time, otherwise data will be lost
+ *
+ * @param {void **} buf - point to buf pointer
+ * @param {uint16_t*} buf_len - buf size
+ * @param {uint16_t} timeout - read timeout in ms
+ * @return wifi_err_t
+ */
+wifi_err_t l5_tcp_read(void **buf, uint16_t * buf_len, uint32_t timeout);
+
+// Close TCP Connection
 wifi_err_t l5_tcp_close(void);
 
 #endif // __LIB_L5_ESP8266_01_H__
