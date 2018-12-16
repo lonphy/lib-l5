@@ -79,6 +79,7 @@ typedef struct {
 } wifi_sta_ip_t;
 
 #define exec_rx_buf_size 64U
+#define dma_rx_buf_size  1024U
 
 typedef struct {
     const char   *active_command; // current at command
@@ -87,14 +88,15 @@ typedef struct {
     wifi_state_t status;
 
     /* for rx */
-    uint8_t       *rx_buf;       /* 接收缓冲 */
-    uint16_t      rx_buf_size;   /* 接收缓冲大小 */
-    __IO uint16_t rx_count;      /* 已经接收的数据量 */
+    uint8_t       current_buf_idx:4;           /* 当前接收缓冲 */
+    uint8_t       ready_buf_idx:4;             /* 就绪接收缓冲 */
+    uint8_t       rx_buf[2][dma_rx_buf_size];  /* 接收缓冲 */
+    uint16_t      rx_buf_size[2];              /* 缓冲已接收大小 */
+
 
     osSemaphoreId tc_semaphore;            /* 发送完成信号量 */
     osSemaphoreId parse_semaphore;         /* 响应解析信号量 */
 
-    uint8_t  exec_rx_buf[exec_rx_buf_size]; /* 单独执行命令 结果缓冲 */
     uint16_t tx_timeout;                    /* 发送超时时间 ms */
     uint16_t rx_timeout;                    /* 接收超时时间 ms */
 } wifi_t;
