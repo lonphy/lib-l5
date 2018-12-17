@@ -24,6 +24,8 @@ __STATIC_INLINE void esp8266_query(const char *cmd, uint16_t cmdSize, uint8_t *b
 
 __STATIC_INLINE void esp8266_write_dat(const void *buf, uint16_t buf_len);
 
+__STATIC_INLINE void ll_enable_dma(void);
+
 static void response_parser_task(const void *arg);
 
 /* --------------- at command defines ------------------------- */
@@ -50,7 +52,7 @@ static void response_parser_task(const void *arg);
 #define at_cipstatus            "AT+CIPSTATUS\r\n"
 #define at_cipstatus_size       sizeof(at_cipstatus)
 
-const char simple_rsp_ok[] = "\r\nOK\r\n";
+const char simple_rsp_ok[] = "OK\r\n";
 
 /* --------------- at command defines ------------------------- */
 /* ---------- config check ----------------------*/
@@ -222,122 +224,187 @@ __used static void ll_usart_deinit() {
     HAL_NVIC_DisableIRQ(USARTx_IRQn);
 }
 
-static volatile char debug_buf[128] = {0};
+__STATIC_INLINE void alloc_command_response(size_t size, const void *dat) {
+    vPortFree((void *) esp8266.command_response);
+    esp8266.command_response = pvPortMalloc(size + 1);
+    memcpy((void *) esp8266.command_response, dat, size);
+    esp8266.command_response[size] = 0;
+    osSemaphoreRelease(esp8266.parse_sem);
+}
 
 void response_parser_task(__unused const void *arg) {
     char *buf = 0;
     char *p = 0;
-    char *p1 = 0;
     char *pProcessing = 0;
 
-    uint16_t size = 0, size1;
-    net_dat_t *dat;
+    size_t size = 0, size1 = 0;
+    net_dat_t *dat = NULL;
+
     while (1) {
-        if (osSemaphoreWait(esp8266.dat_sem, esp8266.rx_timeout) != osOK) {
+        if (osOK != osSemaphoreWait(esp8266.rx_sem, osWaitForever)) {
             continue;
         }
 
-        // at first copy received data to a temp buf
+        size = esp8266.rx_buf_size[esp8266.ready_buf_idx];
+        if (size == 0) {
+            continue;
+        }
+
+        /* at first copy uart rx data to another buffer */
         {
-            size = esp8266.rx_buf_size[esp8266.ready_buf_idx];
-            if (size == 0) {
+            buf = pvPortMalloc(size + 1);
+            memcpy(buf, esp8266.rx_buf[esp8266.ready_buf_idx], size);
+            buf[size] = 0;
+        }
+
+        pProcessing = buf;
+
+        while (pProcessing - buf < size) {
+            /* skip all `\r\n` */
+            while (*pProcessing == '\r') {
+                pProcessing += 2;
+            }
+
+            /* check `+IPD,n...` */
+            p = strstr(pProcessing, "+IPD,");
+            if (p && p == pProcessing) { /* start with `\r\n+IPD:n...` */
+                dat = pvPortMalloc(sizeof(net_dat_t));
+                dat->rawSize = (uint16_t) strtoul(p + 5, &p, 10);
+                p++;
+                dat->raw = pvPortMalloc(dat->rawSize + 1);
+                memcpy(dat->raw, p, dat->rawSize);
+                dat->raw[dat->rawSize] = 0;
+                osMessagePut(esp8266.dat_queue, (uint32_t) dat, 10);
+
+                pProcessing = p + dat->rawSize;
                 continue;
             }
-            buf = pvPortMalloc(size + 1);
-            memset(buf, 0, size + 1);
-            memcpy(buf, esp8266.rx_buf[esp8266.ready_buf_idx], size);
-            memcpy((void *) debug_buf, buf, 128);
-            pProcessing = buf;
-        }
+
+            /* in data sending, need check rsp */
+            if (esp8266.state == command_dat) {
+
+                /* parse `Recv ... bytes\r\n` */
+                p = strstr(pProcessing, "Recv ");
+                if (p && p == pProcessing) {
+                    p = strstr(p, "bytes\r\n");
+                    pProcessing = p + 7;
+                    continue;
+                }
 
 
-        if (esp8266.state == command_dat) { /* in data sending, need check rsp */
-            {/* parse `Recv ... bytes\r\n` */
-                p = strstr(pProcessing, "bytes\r\n");
-                if (p) {
-                    if ((p + 7) == (pProcessing + size)) { /* skip bytes\r\n */
-                        vPortFree(buf);
-                        continue;
-                    }
-                    pProcessing = p + 7; /* has others data, skip bytes\r\n */
+                /* parse `SEND OK\r\n` or `SEND FAIL\r\n`` */
+                p = strstr(pProcessing, "SEND ");
+                if (p && p == pProcessing) {
+                    p = strstr(pProcessing + 5, "\n");
+                    size1 = (p + 1 - pProcessing);
+                    alloc_command_response(size1, pProcessing);
+                    pProcessing = p + 1;
+                    continue;
                 }
             }
 
-            { /* parse `\r\nSEND xxx \r\n` */
-                p = strstr(pProcessing, "\r\nSEND ");
-                if (p) {
-                    p += 7;
-                    /* p should start with `OK\r\n...` or `FAIL\r\n...` */
-                    p1 = strstr(p, "\n");
-                    if (p1) {
-                        size1 = (uint16_t) ((p1 - p) + 2);
-                        if (esp8266.command_response) {
-                            vPortFree((void *) esp8266.command_response);
-                        }
-                        if (size1 > 5) { /* not `SEND OK\r\n` means eg. net conn is broken */
-                            Error_Handler();
-                        }
-                        esp8266.command_response = pvPortMalloc(size1);
-                        memset((void *) esp8266.command_response, 0, size1);
-                        memcpy((void *) esp8266.command_response, p, (size_t) (size1 - 1));
-                        osSemaphoreRelease(esp8266.parse_sem);
-                        if (*(p1 + 1) == 0) {
-                            vPortFree(buf);
+            if (esp8266.state == command_rx) {
+
+                /* sending data len */
+                p = strstr(pProcessing, "OK\r\n> ");
+                if (p && p == pProcessing) {
+                    alloc_command_response(6, pProcessing);
+                    pProcessing += 6;
+                    continue;
+                }
+
+                p = strstr(pProcessing, "OK\r\n");
+                if (p && p == pProcessing) {
+                    alloc_command_response(4, pProcessing);
+                    pProcessing = p + 4;
+                    continue;
+                }
+
+                p = strstr(pProcessing, "ERROR\r\n");
+                if (p && p == pProcessing) {
+                    alloc_command_response(7, pProcessing);
+                    pProcessing = p + 7;
+                    continue;
+                }
+
+                /* *
+                 * parse query at command `+XXX:xxxx\r\n\r\nOK\r\n`
+                 * current command is `AT+XXX?\r\n`
+                 */
+                if (*pProcessing == '+') {
+
+                    /* response with query command prefix */
+                    if (*(pProcessing + 1) == esp8266.command[3]) {
+                        p = strstr(pProcessing, "\r\n\r\nOK\r\n");
+                        if (p) {
+                            size1 = (p + 8 - pProcessing);
+                            alloc_command_response(size1, pProcessing);
+                            pProcessing += size1;
                             continue;
                         }
-                        pProcessing = p1 + 1;
-                    } else {
-                        /* half frame for SEND Status ? never happened with tested */
-                        // Error_Handler();
+
+                        p = strstr(pProcessing, "\r\n\r\nERROR\r\n");
+                        if (p) {
+                            size1 = (p + 11 - pProcessing);
+                            alloc_command_response(size1, pProcessing);
+                            pProcessing += size1;
+                            continue;
+                        }
                     }
                 }
-            }
-        }
 
-        /* sending data len */
-        if (esp8266.state == command_tx) {
-            p = strstr(pProcessing, "\r\nOK\r\n> ");
-            if (p) {
-                esp8266.command_response = pvPortMalloc(9);
-                memset((void *) esp8266.command_response, 0, 9);
-                memcpy((void *) esp8266.command_response, "\r\nOK\r\n> ", 8);
-                osSemaphoreRelease(esp8266.parse_sem);
-                pProcessing = p + 8;
-            }
-        }
-
-        {/* TODO: parse `+IPD:n...` */
-            p = strstr(pProcessing, "+IPD,");
-            if (p) {
-                if (p == pProcessing || p - 1 == pProcessing || p - 2 == pProcessing) { /* start with `\r\n+IPD:n...` */
-                    dat = pvPortMalloc(sizeof(net_dat_t));
-                    dat->rawSize = (uint16_t) strtoul(p + 5, &p, 10);
-                    p++;
-                    dat->raw = pvPortMalloc(dat->rawSize);
-                    memcpy(dat->raw, p, dat->rawSize);
-                    osMessagePut(esp8266.dat_queue, (uint32_t) dat, 10);
-
-                    pProcessing = p + dat->rawSize;
-                    if (pProcessing >= buf + size) { /* no data after ipd frame */
-                        vPortFree(buf);
+                /* for AT+CIPSTATUS */
+                p = strstr(pProcessing, "STATUS:");
+                if (p && p == pProcessing) {
+                    p = strstr(pProcessing, "\r\n\r\nOK\r\n");
+                    if (p) {
+                        size1 = (p + 8 - pProcessing);
+                        alloc_command_response(size1, pProcessing);
+                        pProcessing += size1;
                         continue;
                     }
+                }
 
-                    /* has others data after IPD */
-                    {
-                            Error_Handler();
-                    }
+                /* for AT+CIPSTART=... */
+                p = strstr(pProcessing, "CONNECT\r\n\r\n");
+                if (p && p == pProcessing) {
+                    p = strstr(p + 11, "\n");
+                    size1 = (p + 1 - pProcessing);
+                    alloc_command_response(size1, pProcessing);
+                    pProcessing += size1;
+                    continue;
+                }
 
-                } else {
-                    /* how to op the data before p*/
-                    Error_Handler();
+                /* for AT+CIPCLOSE\r\n */
+                p = strstr(pProcessing, "CLOSED\r\n\r\n");
+                if (p && p == pProcessing) {
+                    p = strstr(p+10, "\n");
+                    size1 = (uint16_t) (p + 1 - pProcessing);
+                    alloc_command_response(size1, pProcessing);
+                    pProcessing += size1;
+                    continue;
+                }
+
+                /* skip busy s...\r\n*/
+                p = strstr(pProcessing, "busy s...");
+                if (p && p == pProcessing) {
+                    pProcessing += 8;
+                    continue;
+                }
+
+                /* skip ATE0\r\n*/
+                p = strstr(pProcessing, "ATE0\r\n");
+                if (p && p == pProcessing) {
+                    pProcessing += 6;
+                    continue;
                 }
             }
+
+            /* never goes to here, occurs when at fw version not 1.6 */
+            esp8266.command_response = buf;
+            osSemaphoreRelease(esp8266.parse_sem);
         }
-
-        esp8266.command_response = buf;
-        osSemaphoreRelease(esp8266.parse_sem);
-
+        vPortFree(buf);
     }
 }
 
@@ -346,8 +413,8 @@ wifi_err_t l5_wifi_init(uint16_t tx_timeout, uint16_t rx_timeout) {
     osMutexDef(rw_lock); /* for write */
     osSemaphoreDef(parse_sem);
     osSemaphoreDef(tc_sem);
-    osSemaphoreDef(dat_sem);
-    osMessageQDef(data_queue, 10, net_dat_t*);
+    osSemaphoreDef(rx_sem);
+    osMessageQDef(data_queue, 3, net_dat_t*);
     osThreadDef(rsp_parser, response_parser_task, osPriorityHigh, 1, 1024);
 
     esp8266.tx_timeout = tx_timeout;
@@ -367,8 +434,8 @@ wifi_err_t l5_wifi_init(uint16_t tx_timeout, uint16_t rx_timeout) {
         esp8266.parse_sem = osSemaphoreCreate(osSemaphore(parse_sem), 1);
         osSemaphoreWait(esp8266.parse_sem, 0); // it has 1 signal when created, free it.
 
-        esp8266.dat_sem = osSemaphoreCreate(osSemaphore(dat_sem), 1);
-        osSemaphoreWait(esp8266.parse_sem, 0); // it has 1 signal when created, free it.
+        esp8266.rx_sem = osSemaphoreCreate(osSemaphore(rx_sem), 1);
+        osSemaphoreWait(esp8266.rx_sem, 0); // it has 1 signal when created, free it.
 
         /* TODO: think bind to runner task? */
         esp8266.dat_queue = osMessageCreate(osMessageQ(data_queue), NULL);
@@ -380,7 +447,7 @@ wifi_err_t l5_wifi_init(uint16_t tx_timeout, uint16_t rx_timeout) {
         return wifi_error;
     }
 
-    ll_usart_receive();
+    ll_enable_dma();
 
     /* close echo */
     _esp8266_exec("ATE0\r\n", 6, simple_rsp_ok);
@@ -939,7 +1006,6 @@ __STATIC_INLINE void esp8266_write_dat(const void *buf, uint16_t buf_len) {
 
     END:
     vPortFree(cmd_buf);
-    vPortFree((void *) esp8266.command_response);
     esp8266.state = command_idle;
     unlock();
 }
@@ -971,8 +1037,6 @@ __STATIC_INLINE void _esp8266_exec(const char *cmd, uint16_t cmd_len, const char
     }
 
     END:
-    vPortFree((void *) esp8266.command_response);
-    esp8266.command_response = NULL;
     esp8266.state = command_idle;
     unlock();
 }
@@ -1000,8 +1064,6 @@ __STATIC_INLINE void esp8266_query(const char *cmd, uint16_t cmdSize, uint8_t *b
     memcpy(buf, esp8266.command_response, strnlen(esp8266.command_response, exec_rx_buf_size - 1));
 
     END:
-    vPortFree((void *) esp8266.command_response);
-    esp8266.command_response = NULL;
     esp8266.state = command_idle;
     unlock();
 }
@@ -1038,16 +1100,9 @@ __STATIC_INLINE void ll_usart_transmit(const char *buf, uint16_t buf_size) {
     }
 }
 
-/* low level uart rx */
-__STATIC_INLINE void ll_usart_receive(void) {
-    uint8_t idx = esp8266.current_buf_idx;
-    esp8266.ready_buf_idx = idx;
-    /* handle previous buf len */
-    esp8266.rx_buf_size[idx] = (uint16_t) (dma_rx_buf_size - USARTx_Rx_DMA_Channelx->CNDTR);
 
-    idx = esp8266.current_buf_idx = (uint8_t) ((idx + 1) % 2);
-    esp8266.rx_buf_size[idx] = 0;
-
+/* low level enable rx dma */
+__STATIC_INLINE void ll_enable_dma(void) {
     {
         /* Disable the peripheral */
         CLEAR_BIT(USARTx_Rx_DMA_Channelx->CCR, DMA_CCR_EN);
@@ -1056,7 +1111,7 @@ __STATIC_INLINE void ll_usart_receive(void) {
             USARTx_DMAx->IFCR = __DMA_GIF_IDX(USARTx_Rx_DMA_Channel); /* Clear all flags */
             USARTx_Rx_DMA_Channelx->CNDTR = dma_rx_buf_size; /* Configure DMA Channel data length */
             USARTx_Rx_DMA_Channelx->CPAR = (uint32_t) (&ESP8266_USARTx->DR); /* Configure DMA Channel source address */
-            USARTx_Rx_DMA_Channelx->CMAR = (uint32_t) esp8266.rx_buf[idx]; /* Configure DMA Channel destination address */
+            USARTx_Rx_DMA_Channelx->CMAR = (uint32_t) esp8266.rx_buf[esp8266.current_buf_idx]; /* Configure DMA Channel destination address */
         }
 
         CLEAR_BIT(USARTx_Rx_DMA_Channelx->CCR, DMA_CCR_HTIE); /* disable half transfer it */
@@ -1081,8 +1136,20 @@ __STATIC_INLINE void ll_usart_receive(void) {
     /* enable the DMA transfer for the receiver request by setting the DMAR bit
     in the UART CR3 register */
     SET_BIT(ESP8266_USARTx->CR3, USART_CR3_DMAR);
+}
 
-    osSemaphoreRelease(esp8266.dat_sem);
+/* low level uart rx */
+__STATIC_INLINE void ll_usart_receive(void) {
+    uint8_t idx = esp8266.current_buf_idx;
+    esp8266.ready_buf_idx = idx;
+    /* handle previous buf len */
+    esp8266.rx_buf_size[idx] = (uint16_t) (dma_rx_buf_size - USARTx_Rx_DMA_Channelx->CNDTR);
+
+    idx = esp8266.current_buf_idx = (uint8_t) ((idx + 1) % 2);
+    esp8266.rx_buf_size[idx] = 0;
+
+    ll_enable_dma();
+    osSemaphoreRelease(esp8266.rx_sem);
 }
 
 #endif // defined(L5_USE_ESP8266)

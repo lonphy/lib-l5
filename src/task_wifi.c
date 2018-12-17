@@ -9,7 +9,7 @@
 #define wifi_log(f, ...) printf("[wifi] " f "\n", ##__VA_ARGS__)
 
 #define wifi_tx_timeout 1000
-#define wifi_rx_timeout 5000
+#define wifi_rx_timeout 3000
 #define tcp_server_ip   "192.168.1.17"
 #define tcp_server_port 8899
 
@@ -22,20 +22,10 @@ void task_wifi(__unused void const *arg) {
     /* init Wifi */
     if (wifi_ok != l5_wifi_init(wifi_tx_timeout, wifi_rx_timeout)) {
         /* may esp8266's baud rate is others */
-
-
-
         wifi_log("init error");
         Error_Handler();
     }
     wifi_log("init success");
-
-    err = l5_wifi_set_baudrate(ESP8266_RUN_BAUD_RATE);
-    if (err != wifi_ok) {
-        l5_wifi_reset();
-        Error_Handler();
-    }
-
 
     /* query work mode, insure it's Station mode */
     if (l5_wifi_get_work_mode() != work_mode_station) {
@@ -94,7 +84,7 @@ void task_wifi(__unused void const *arg) {
 
     {
         net_status_t status = l5_wifi_net_status();
-        if ( status == ns_tcp_udp_connected) {
+        if (status == ns_tcp_udp_connected) {
             l5_tcp_close();
         }
 

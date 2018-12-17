@@ -52,7 +52,7 @@ int main(void) {
             osThreadCreate(osThread(oled), NULL);
          */
 
-        osThreadDef(wifi, task_wifi, osPriorityNormal, 1, 2048);
+        osThreadDef(wifi, task_wifi, osPriorityNormal, 1, 4096);
         osThreadCreate(osThread(wifi), NULL);
     }
     osKernelStart();

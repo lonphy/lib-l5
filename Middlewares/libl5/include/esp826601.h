@@ -51,55 +51,55 @@ typedef enum wifi_work_mode_t {
 
 // 热点配置信息
 typedef struct wifi_hotspot_t {
-    uint8_t    max_conn:3;    /* 最大接入client数量 1~4 */
-    uint8_t    ssid_hidden:1; /* 是否隐藏 ssid */
-    uint8_t    channel;
+    uint8_t max_conn:3;    /* 最大接入client数量 1~4 */
+    uint8_t ssid_hidden:1; /* 是否隐藏 ssid */
+    uint8_t channel;
     wifi_enc_t enc;
-    char       ssid[32];
-    char       pwd[65];
+    char ssid[32];
+    char pwd[65];
 } wifi_hotspot_t;
 
 /* ap info */
 typedef struct {
-    uint8_t       wps:1;
-    uint8_t       bgn:3;
-    wifi_enc_t    enc:3;
-    uint8_t       channel;
-    int8_t        rssi; /* 信号强度 */
+    uint8_t wps:1;
+    uint8_t bgn:3;
+    wifi_enc_t enc:3;
+    uint8_t channel;
+    int8_t rssi; /* 信号强度 */
     wifi_ap_err_t err;
-    char          ssid[32];
-    char          mac[17]; /* AP的mac地址16字节  */
+    char ssid[32];
+    char mac[17]; /* AP的mac地址16字节  */
 } wifi_ap_t;
 
 /* 本地IP信息 */
 typedef struct {
-    uint8_t  mask;
+    uint8_t mask;
     uint32_t ip;
     uint32_t gateway;
 } wifi_sta_ip_t;
 
 #define exec_rx_buf_size 64U
-#define dma_rx_buf_size  1024U
+#define dma_rx_buf_size  512U
 
 typedef struct {
-    const char   *command;  /* current at command */
-    const char   *command_response; /* response for current at command*/
-    command_state_t state; /* current command state */
+    const char *command;  /* current at command */
+    char *command_response; /* response for current at command*/
+    volatile command_state_t state; /* current command state */
 
-    osMutexId    lock;
-    wifi_err_t   err;      // current at command exec result code
+    osMutexId lock;
+    wifi_err_t err;      // current at command exec result code
 
     /* for rx */
-    uint8_t       current_buf_idx:4;           /* 当前接收缓冲 */
-    uint8_t       ready_buf_idx:4;             /* 就绪接收缓冲 */
-    uint8_t       rx_buf[2][dma_rx_buf_size];  /* 接收缓冲 */
-    uint16_t      rx_buf_size[2];              /* 缓冲已接收大小 */
+    uint8_t current_buf_idx:4;           /* 当前接收缓冲 */
+    volatile uint8_t ready_buf_idx:4;             /* 就绪接收缓冲 */
+    uint8_t rx_buf[2][dma_rx_buf_size];  /* 接收缓冲 */
+    uint16_t rx_buf_size[2];              /* 缓冲已接收大小 */
 
-    TaskHandle_t  response_task;           /* task with response parse */
+    TaskHandle_t response_task;           /* task with response parse */
     osSemaphoreId tc_sem;                  /* 信号量 - 发送完成      */
     osSemaphoreId parse_sem;               /* 信号量 - 可以开始解析   */
-    osSemaphoreId dat_sem;                 /* 信号量 - 收到串口一帧数据 */
-    osMessageQId  dat_queue;               /* 队列 - 收到Server数据  */
+    osSemaphoreId rx_sem;                  /* 信号量 - 收到串口一帧数据 */
+    osMessageQId dat_queue;               /* 队列 - 收到Server数据  */
 
     uint16_t tx_timeout;                    /* 发送超时时间 ms */
     uint16_t rx_timeout;                    /* 接收超时时间 ms */
@@ -122,9 +122,9 @@ typedef enum net_type_t {
     net_ssl,
 } net_type_t;
 
-typedef struct net_dat_t{
+typedef struct net_dat_t {
     uint16_t rawSize;
-    void *raw;
+    uint8_t *raw;
 } net_dat_t;
 /* ------------------ network --------------- */
 
@@ -139,6 +139,7 @@ wifi_err_t l5_wifi_reset();
 
 /* set uart baud rate */
 wifi_err_t l5_wifi_set_baudrate(uint32_t baud);
+
 /* get uart baud rate */
 wifi_err_t l5_wifi_get_baudrate(uint32_t *baud);
 
@@ -181,7 +182,7 @@ wifi_err_t l5_wifi_get_client_ip_list(char *buf, uint16_t bufSize);
 net_status_t l5_wifi_net_status();
 
 // Get IPv4 for domain
-wifi_err_t   l5_net_domain(const char * domain, uint32_t * ipv4);
+wifi_err_t l5_net_domain(const char *domain, uint32_t *ipv4);
 
 /**
  * Dial TCP Connection
@@ -191,7 +192,7 @@ wifi_err_t   l5_net_domain(const char * domain, uint32_t * ipv4);
  * @param {uint16_t} keep_alive - tcp keep-alive, 0-disable, otherwise- enable [1~7200], unit:s
  * @return
  */
-wifi_err_t   l5_tcp_dial(const char * domain, uint16_t port, uint16_t keep_alive);
+wifi_err_t l5_tcp_dial(const char *domain, uint16_t port, uint16_t keep_alive);
 
 /**
  * Send Data with TCP with block mode
@@ -200,7 +201,7 @@ wifi_err_t   l5_tcp_dial(const char * domain, uint16_t port, uint16_t keep_alive
  * @param {uint16_t} buf_len - buffer size
  * @return
  */
-wifi_err_t l5_tcp_write(const void * buf, uint16_t buf_len);
+wifi_err_t l5_tcp_write(const void *buf, uint16_t buf_len);
 
 /**
  * Read TCP Data with block mode
@@ -213,7 +214,7 @@ wifi_err_t l5_tcp_write(const void * buf, uint16_t buf_len);
  * @param {uint16_t} timeout - read timeout in ms
  * @return wifi_err_t
  */
-wifi_err_t l5_tcp_read(void **buf, uint16_t * buf_len, uint32_t timeout);
+wifi_err_t l5_tcp_read(void **buf, uint16_t *buf_len, uint32_t timeout);
 
 // Close TCP Connection
 wifi_err_t l5_tcp_close(void);
