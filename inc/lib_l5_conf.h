@@ -33,7 +33,10 @@ extern "C" {
 /*------------ ESP8266 config -------------- */
 #ifdef L5_USE_ESP8266
 #define ESP8266_USART     UART4_BASE
-#define ESP8266_BAUD_RATE 115200
+//#define ESP8266_BAUD_RATE 115200
+#define ESP8266_BAUD_RATE 460800
+//#define ESP8266_RUN_BAUD_RATE 192000
+#define ESP8266_RUN_BAUD_RATE 460800
 #define ESP8266_GPIO      GPIOC
 #define ESP8266_Tx        GPIO_PIN_10
 #define ESP8266_Rx        GPIO_PIN_11

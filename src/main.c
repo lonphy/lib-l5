@@ -14,7 +14,6 @@ void task_parser(const void *arg);
 void task_oled(void const *arg);
 
 void task_wifi(const void *arg);
-void task_remote_runner(void const *arg);
 
 void system_clock_config(void);
 void _error_handler(char *file, int line) {
@@ -52,10 +51,6 @@ int main(void) {
             osThreadDef(oled, task_oled, osPriorityNormal, 0, 1024);
             osThreadCreate(osThread(oled), NULL);
          */
-
-
-        osThreadDef(runner, task_remote_runner, osPriorityNormal, 1, 2048);
-        osThreadCreate(osThread(runner), NULL);
 
         osThreadDef(wifi, task_wifi, osPriorityNormal, 1, 2048);
         osThreadCreate(osThread(wifi), NULL);

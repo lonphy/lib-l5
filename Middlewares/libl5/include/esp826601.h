@@ -96,10 +96,10 @@ typedef struct {
     uint16_t      rx_buf_size[2];              /* 缓冲已接收大小 */
 
     TaskHandle_t  response_task;           /* task with response parse */
-    osSemaphoreId tc_sem;                  /* 信号量 - 发送完成     */
-    osSemaphoreId dat_sem;                 /* 信号量 - 收到一帧数据  */
-    osSemaphoreId parse_sem;               /* 信号量 - 可以开始解析  */
-    osMessageQId  dat_queue;               /* 队列 - 收到Server数据 */
+    osSemaphoreId tc_sem;                  /* 信号量 - 发送完成      */
+    osSemaphoreId parse_sem;               /* 信号量 - 可以开始解析   */
+    osSemaphoreId dat_sem;                 /* 信号量 - 收到串口一帧数据 */
+    osMessageQId  dat_queue;               /* 队列 - 收到Server数据  */
 
     uint16_t tx_timeout;                    /* 发送超时时间 ms */
     uint16_t rx_timeout;                    /* 接收超时时间 ms */
@@ -136,6 +136,11 @@ wifi_err_t l5_wifi_init(uint16_t tx_timeout, uint16_t rx_timeout);
 
 // WIFI模块重置(重启)
 wifi_err_t l5_wifi_reset();
+
+/* set uart baud rate */
+wifi_err_t l5_wifi_set_baudrate(uint32_t baud);
+/* get uart baud rate */
+wifi_err_t l5_wifi_get_baudrate(uint32_t *baud);
 
 // 获取WIFI模块信息
 wifi_err_t l5_wifi_get_version(uint8_t *versionInfo, uint16_t versionInfoSize);
