@@ -2,59 +2,33 @@
 
 #include <string.h>
 #include <stdlib.h>
-#include <cmsis_os.h>
 
 #ifdef L5_USE_ESP8266
 
-__STATIC_INLINE const char *parse_ip(const char *str, uint32_t *dest);
+static inline const char *parse_ip(const char *str, uint32_t *dest);
 
-__STATIC_INLINE void ll_gpio_init();
+static inline void ll_gpio_init();
 
-__STATIC_INLINE void ll_usart_init();
+static inline void ll_usart_init();
 
-static void ll_usart_config(uint32_t baud);
+static inline void ll_usart_config(uint32_t baud);
 
-__STATIC_INLINE void _esp8266_exec(const char *cmd, uint16_t cmd_len, const char *rsp_suffix);
+static inline void esp8266_exec(const char *cmd, uint16_t cmd_len, const char *rsp_suffix);
 
-__STATIC_INLINE void ll_usart_transmit(const char *buf, uint16_t buf_size);
+static inline void ll_usart_transmit(const char *buf, uint16_t buf_size);
 
-__STATIC_INLINE void ll_usart_receive(void);
+static inline void ll_usart_receive(void);
 
-__STATIC_INLINE void esp8266_query(const char *cmd, uint16_t cmdSize, uint8_t *buf, uint16_t buf_size);
+static inline void esp8266_query(const char *cmd, uint16_t cmdSize, uint8_t *buf, uint16_t buf_size);
 
-__STATIC_INLINE void esp8266_write_dat(const void *buf, uint16_t buf_len);
+static inline void esp8266_write_dat(const void *buf, uint16_t buf_len);
 
-__STATIC_INLINE void ll_enable_dma(void);
+static inline void ll_enable_dma(void);
+
+static inline void alloc_command_response(size_t size, const void *dat);
 
 static void response_parser_task(const void *arg);
 
-/* --------------- at command defines ------------------------- */
-#define at_cwmode_tpl           "AT+CWMODE=%d\r\n"
-#define at_cwmode_tpl_size      sizeof(at_cwmode_tpl)
-#define at_cwjap_tpl            "AT+CWJAP=\"%s\",\"%s\"\r\n"
-#define at_cwjap_tpl_size        128
-#define at_cwlap                "AT+CWLAP=\r\n"
-#define at_cwlap_size           sizeof(at_cwlap)
-#define at_cwqap                "AT+CWQAP\r\n"
-#define at_cwqap_size           sizeof(at_cwqap)
-#define at_cwsap_query          "AT+CWSAP?\r\n"
-#define at_cwsap_query_size     sizeof(at_cwsap_query)
-#define at_cwsap_set_tpl        "AT+CWSAP=\"%s\",\"%s\",%d,%d,%d,%d\r\n"
-#define at_cwsap_set_tpl_size    128
-#define at_cwlif                "AT+CWLIF\r\n"
-#define at_cwlif_size           sizeof(at_cwlif)
-#define at_cipsta               "AT+CIPSTA?\r\n"
-#define at_cipsta_size          sizeof(at_cipsta)
-#define at_cwlapopt             "AT+CWLAPOPT=1,1567\r\n"
-#define at_cwlapopt_size        sizeof(at_cwlapopt)
-
-
-#define at_cipstatus            "AT+CIPSTATUS\r\n"
-#define at_cipstatus_size       sizeof(at_cipstatus)
-
-const char simple_rsp_ok[] = "OK\r\n";
-
-/* --------------- at command defines ------------------------- */
 /* ---------- config check ----------------------*/
 #ifndef ESP8266_USART
 #error ESP8266_USART not configed
@@ -111,6 +85,7 @@ const char simple_rsp_ok[] = "OK\r\n";
 /* ---------- config check ----------------------*/
 
 static wifi_t esp8266;
+static const char simple_rsp_ok[] = "OK\r\n";
 
 #define lock()   osMutexWait(esp8266.lock, osWaitForever)
 #define unlock() osMutexRelease(esp8266.lock)
@@ -222,14 +197,6 @@ __used static void ll_usart_deinit() {
     __RAW_RCC_USARTx_CLK_DISABLE();
     HAL_GPIO_DeInit(ESP8266_GPIO, ESP8266_Tx | ESP8266_Rx);
     HAL_NVIC_DisableIRQ(USARTx_IRQn);
-}
-
-__STATIC_INLINE void alloc_command_response(size_t size, const void *dat) {
-    vPortFree((void *) esp8266.command_response);
-    esp8266.command_response = pvPortMalloc(size + 1);
-    memcpy((void *) esp8266.command_response, dat, size);
-    esp8266.command_response[size] = 0;
-    osSemaphoreRelease(esp8266.parse_sem);
 }
 
 void response_parser_task(__unused const void *arg) {
@@ -450,14 +417,14 @@ wifi_err_t l5_wifi_init(uint16_t tx_timeout, uint16_t rx_timeout) {
     ll_enable_dma();
 
     /* close echo */
-    _esp8266_exec("ATE0\r\n", 6, simple_rsp_ok);
+    esp8266_exec("ATE0\r\n", 6, simple_rsp_ok);
 
     if (esp8266.err != wifi_ok) {
         return esp8266.err;
     }
 
     /* setup ap scan's option */
-    _esp8266_exec(at_cwlapopt, at_cwlapopt_size, simple_rsp_ok);
+    esp8266_exec("AT+CWLAPOPT=1,1567\r\n", 20, simple_rsp_ok);
     return esp8266.err;
 }
 
@@ -466,10 +433,10 @@ wifi_err_t l5_wifi_set_baudrate(uint32_t baud) {
         return wifi_invalid_param;
     }
 
-    char *buf = pvPortMalloc(64);
-    memset(buf, 0, 64);
-    int len = sprintf(buf, "AT+UART=%lu,8,1,0,0\r\n", baud);
-    _esp8266_exec(buf, (uint16_t) len, simple_rsp_ok);
+    char *buf = pvPortMalloc(32);
+    int len = sprintf(buf, "AT+UART=%lu,8,1,0,0", baud);
+
+    esp8266_exec(buf, (uint16_t) len, simple_rsp_ok);
     if (esp8266.err != wifi_ok) {
         vPortFree(buf);
         return esp8266.err;
@@ -482,7 +449,6 @@ wifi_err_t l5_wifi_set_baudrate(uint32_t baud) {
 
 wifi_err_t l5_wifi_get_baudrate(uint32_t *baud) {
     char *buf = pvPortMalloc(64);
-    memset(buf, 0, 64);
     esp8266_query("AT+UART?\r\n", 10, (uint8_t *) buf, 64);
     if (esp8266.err != wifi_ok) {
         vPortFree(buf);
@@ -505,13 +471,13 @@ wifi_err_t l5_wifi_get_version(uint8_t *versionInfo, uint16_t versionInfoSize) {
 
 // TODO: implement
 wifi_err_t l5_wifi_reset() {
-    _esp8266_exec("AT+RST\r\n", 8, simple_rsp_ok);
+    esp8266_exec("AT+RST\r\n", 8, simple_rsp_ok);
     return esp8266.err;
 }
 
 // test
 wifi_err_t l5_wifi_ping() {
-    _esp8266_exec("AT\r\n", 4, simple_rsp_ok);
+    esp8266_exec("AT\r\n", 4, simple_rsp_ok);
     return esp8266.err;
 }
 
@@ -544,9 +510,9 @@ wifi_err_t l5_wifi_set_work_mode(wifi_work_mode_t mode) {
         return wifi_invalid_param;
     }
 
-    cmdBuf = pvPortMalloc(at_cwmode_tpl_size);
-    realCmdLen = sprintf(cmdBuf, at_cwmode_tpl, mode);
-    _esp8266_exec(cmdBuf, (uint16_t) realCmdLen, simple_rsp_ok);
+    cmdBuf = pvPortMalloc(13);
+    realCmdLen = sprintf(cmdBuf, "AT+CWMODE=%d\r\n", mode);
+    esp8266_exec(cmdBuf, (uint16_t) realCmdLen, simple_rsp_ok);
     vPortFree(cmdBuf);
     return esp8266.err;
 }
@@ -607,14 +573,9 @@ void l5_wifi_get_joined_ap(wifi_ap_t *ap) {
 
 // join to spec ap
 wifi_err_t l5_wifi_join_ap(const char *ssid, const char *pwd) {
-    char *cmd_buf = pvPortMalloc(at_cwjap_tpl_size);
-    int real_cmd_len = sprintf(cmd_buf, at_cwjap_tpl, ssid, pwd);
-    _esp8266_exec(cmd_buf, (uint16_t) real_cmd_len, simple_rsp_ok);
-    if (esp8266.err != wifi_ok) {
-        goto END;
-    }
-
-    END:
+    char *cmd_buf = pvPortMalloc(128);
+    int real_cmd_len = sprintf(cmd_buf, "AT+CWJAP=\"%s\",\"%s\"\r\n", ssid, pwd);
+    esp8266_exec(cmd_buf, (uint16_t) real_cmd_len, simple_rsp_ok);
     vPortFree(cmd_buf);
     return esp8266.err;
 }
@@ -624,7 +585,7 @@ wifi_err_t l5_wifi_join_ap(const char *ssid, const char *pwd) {
 wifi_err_t l5_wifi_get_sta_ip(wifi_sta_ip_t *ip) {
     char *buf = pvPortMalloc(120);
 
-    esp8266_query(at_cipsta, at_cipsta_size, (uint8_t *) buf, 120);
+    esp8266_query("AT+CIPSTA?\r\n", 12, (uint8_t *) buf, 120);
     if (esp8266.err != wifi_ok) {
         goto END;
     }
@@ -674,7 +635,7 @@ wifi_err_t l5_wifi_scan_ap_list(wifi_ap_t list[], uint8_t limit) {
     char *buf = pvPortMalloc(128 * 5);
     char *p;
 
-    esp8266_query(at_cwlap, at_cwlap_size, (uint8_t *) buf, 128 * 5);
+    esp8266_query("AT+CWLAP=\r\n", 11, (uint8_t *) buf, 128 * 5);
     if (esp8266.err != wifi_ok) {
         vPortFree(buf);
         return esp8266.err;
@@ -726,7 +687,7 @@ wifi_err_t l5_wifi_scan_ap_list(wifi_ap_t list[], uint8_t limit) {
 
 // leave current joined ap
 wifi_err_t l5_wifi_exit_ap() {
-    _esp8266_exec(at_cwqap, at_cwqap_size, simple_rsp_ok);
+    esp8266_exec("AT+CWQAP\r\n", 10, simple_rsp_ok);
     return esp8266.err;
 }
 
@@ -735,7 +696,7 @@ wifi_err_t l5_wifi_get_hotspot(wifi_hotspot_t *opt) {
     char *buf = pvPortMalloc(128);
     char *p = NULL;
     uint8_t i;
-    esp8266_query(at_cwsap_query, at_cwsap_query_size, (uint8_t *) buf, 128);
+    esp8266_query("AT+CWSAP?\r\n", 11, (uint8_t *) buf, 128);
     if (esp8266.err != wifi_ok) {
         vPortFree(buf);
         return esp8266.err;
@@ -772,16 +733,22 @@ wifi_err_t l5_wifi_get_hotspot(wifi_hotspot_t *opt) {
 
 // set soft ap config
 wifi_err_t l5_wifi_set_hotspot(wifi_hotspot_t *opt) {
-    char *cmd_buf = pvPortMalloc(at_cwsap_set_tpl_size);
-    int real_cmd_len = sprintf(cmd_buf, at_cwsap_set_tpl, opt->ssid, opt->pwd, opt->channel, opt->enc, opt->max_conn,
-                               opt->ssid_hidden);
-    _esp8266_exec(cmd_buf, (uint16_t) real_cmd_len, simple_rsp_ok);
+    char *cmd_buf = pvPortMalloc(128);
+    int real_cmd_len = sprintf(cmd_buf,
+            "AT+CWSAP=\"%s\",\"%s\",%d,%d,%d,%d\r\n",
+            opt->ssid,
+            opt->pwd,
+            opt->channel,
+            opt->enc,
+            opt->max_conn,
+            opt->ssid_hidden);
+    esp8266_exec(cmd_buf, (uint16_t) real_cmd_len, simple_rsp_ok);
     vPortFree(cmd_buf);
     return esp8266.err;
 }
 
 wifi_err_t l5_wifi_get_client_ip_list(char *buf, uint16_t bufSize) {
-    esp8266_query(at_cwlif, at_cwlif_size, (uint8_t *) buf, bufSize);
+    esp8266_query("AT+CWLIF\r\n", 10, (uint8_t *) buf, bufSize);
     if (esp8266.err != wifi_ok) {
         return esp8266.err;
     }
@@ -795,7 +762,7 @@ wifi_err_t l5_wifi_get_client_ip_list(char *buf, uint16_t bufSize) {
 
 net_status_t l5_wifi_net_status() {
     char *buf = pvPortMalloc(128);
-    esp8266_query(at_cipstatus, at_cipstatus_size, (uint8_t *) buf, 128);
+    esp8266_query("AT+CIPSTATUS\r\n", 14, (uint8_t *) buf, 128);
     if (esp8266.err != wifi_ok) {
         vPortFree(buf);
         return ns_unknow;
@@ -821,7 +788,7 @@ wifi_err_t l5_net_domain(const char *domain, uint32_t *ipv4) {
 wifi_err_t l5_tcp_dial(const char *domain, uint16_t port, uint16_t keep_alive) {
     char *cmd_buf = pvPortMalloc(64);
     int real_cmd_len = sprintf(cmd_buf, "AT+CIPSTART=\"TCP\",\"%s\",%d,%d\r\n", domain, port, keep_alive);
-    _esp8266_exec(cmd_buf, (uint16_t) real_cmd_len, simple_rsp_ok);
+    esp8266_exec(cmd_buf, (uint16_t) real_cmd_len, simple_rsp_ok);
     vPortFree(cmd_buf);
     return esp8266.err;
 }
@@ -846,14 +813,23 @@ wifi_err_t l5_tcp_read(void **buf, uint16_t *buf_len, uint32_t timeout) {
 }
 
 wifi_err_t l5_tcp_close(void) {
-    _esp8266_exec("AT+CIPCLOSE\r\n", 13, simple_rsp_ok);
+    esp8266_exec("AT+CIPCLOSE\r\n", 13, simple_rsp_ok);
     return esp8266.err;
 }
 
 
 /* -------------------- private ---------------------- */
+
+static inline void alloc_command_response(size_t size, const void *dat) {
+    vPortFree((void *) esp8266.command_response);
+    esp8266.command_response = pvPortMalloc(size + 1);
+    memcpy((void *) esp8266.command_response, dat, size);
+    esp8266.command_response[size] = 0;
+    osSemaphoreRelease(esp8266.parse_sem);
+}
+
 /* convert ip string to uint32 ip*/
-__STATIC_INLINE const char *parse_ip(const char *str, uint32_t *dest) {
+static inline const char *parse_ip(const char *str, uint32_t *dest) {
     uint32_t tmp = 0, ret = 0;
     while (*str != '"') {
         if (*str == '.') {
@@ -870,7 +846,7 @@ __STATIC_INLINE const char *parse_ip(const char *str, uint32_t *dest) {
     return str;
 }
 
-__STATIC_INLINE void ll_gpio_init() {
+static inline void ll_gpio_init() {
     GPIO_InitTypeDef gpioOpt;
     gpioOpt.Pin = ESP8266_Tx | ESP8266_Rx;
     gpioOpt.Mode = GPIO_MODE_AF_PP;
@@ -949,7 +925,7 @@ static void ll_usart_init() {
     HAL_NVIC_EnableIRQ(USARTx_IRQn);
 }
 
-static void ll_usart_config(uint32_t baud) {
+static inline void ll_usart_config(uint32_t baud) {
     CLEAR_BIT(ESP8266_USARTx->CR1, USART_CR1_UE);
     // BRR
     if (ESP8266_USARTx == USART1) {
@@ -960,7 +936,7 @@ static void ll_usart_config(uint32_t baud) {
     SET_BIT(ESP8266_USARTx->CR1, USART_CR1_UE);
 }
 
-__STATIC_INLINE void esp8266_write_dat(const void *buf, uint16_t buf_len) {
+static inline void esp8266_write_dat(const void *buf, uint16_t buf_len) {
     lock();
     char *cmd_buf = pvPortMalloc(32);
     int real_cmd_len = sprintf(cmd_buf, "AT+CIPSEND=%d\r\n", buf_len);
@@ -1010,7 +986,7 @@ __STATIC_INLINE void esp8266_write_dat(const void *buf, uint16_t buf_len) {
     unlock();
 }
 
-__STATIC_INLINE void _esp8266_exec(const char *cmd, uint16_t cmd_len, const char *rsp_suffix) {
+static inline void esp8266_exec(const char *cmd, uint16_t cmd_len, const char *rsp_suffix) {
     lock();
 
     /* step1. tx with it */
@@ -1041,7 +1017,7 @@ __STATIC_INLINE void _esp8266_exec(const char *cmd, uint16_t cmd_len, const char
     unlock();
 }
 
-__STATIC_INLINE void esp8266_query(const char *cmd, uint16_t cmdSize, uint8_t *buf, uint16_t buf_size) {
+static inline void esp8266_query(const char *cmd, uint16_t cmdSize, uint8_t *buf, uint16_t buf_size) {
     lock();
     /* step1. tx with it */
     ll_usart_transmit(cmd, cmdSize);
@@ -1069,7 +1045,7 @@ __STATIC_INLINE void esp8266_query(const char *cmd, uint16_t cmdSize, uint8_t *b
 }
 
 /* low level uart tx */
-__STATIC_INLINE void ll_usart_transmit(const char *buf, uint16_t buf_size) {
+static inline void ll_usart_transmit(const char *buf, uint16_t buf_size) {
     esp8266.state = command_tx;
     esp8266.command = buf;
     esp8266.err = wifi_ok;
@@ -1102,7 +1078,7 @@ __STATIC_INLINE void ll_usart_transmit(const char *buf, uint16_t buf_size) {
 
 
 /* low level enable rx dma */
-__STATIC_INLINE void ll_enable_dma(void) {
+static inline void ll_enable_dma(void) {
     {
         /* Disable the peripheral */
         CLEAR_BIT(USARTx_Rx_DMA_Channelx->CCR, DMA_CCR_EN);
@@ -1139,7 +1115,7 @@ __STATIC_INLINE void ll_enable_dma(void) {
 }
 
 /* low level uart rx */
-__STATIC_INLINE void ll_usart_receive(void) {
+static inline void ll_usart_receive(void) {
     uint8_t idx = esp8266.current_buf_idx;
     esp8266.ready_buf_idx = idx;
     /* handle previous buf len */
