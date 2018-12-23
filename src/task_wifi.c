@@ -21,7 +21,7 @@ void task_wifi(__unused void const *arg) {
 
     /* init Wifi */
     if (wifi_ok != l5_wifi_init(wifi_tx_timeout, wifi_rx_timeout)) {
-        /* may esp8266's baud rate is others */
+        /* Maybe esp8266's baud rate is others */
         wifi_log("init error");
         Error_Handler();
     }

@@ -294,7 +294,7 @@ void response_parser_task(__unused const void *arg) {
                     continue;
                 }
 
-                /* *
+                /**
                  * parse query at command `+XXX:xxxx\r\n\r\nOK\r\n`
                  * current command is `AT+XXX?\r\n`
                  */
@@ -375,7 +375,6 @@ void response_parser_task(__unused const void *arg) {
     }
 }
 
-// init esp8266-01 mode
 wifi_err_t l5_wifi_init(uint16_t tx_timeout, uint16_t rx_timeout) {
     osMutexDef(rw_lock); /* for write */
     osSemaphoreDef(parse_sem);
@@ -475,12 +474,6 @@ wifi_err_t l5_wifi_reset() {
     return esp8266.err;
 }
 
-// test
-wifi_err_t l5_wifi_ping() {
-    esp8266_exec("AT\r\n", 4, simple_rsp_ok);
-    return esp8266.err;
-}
-
 wifi_work_mode_t l5_wifi_get_work_mode() {
     uint8_t mode = 0;
     char *buf = pvPortMalloc(32);
@@ -517,7 +510,6 @@ wifi_err_t l5_wifi_set_work_mode(wifi_work_mode_t mode) {
     return esp8266.err;
 }
 
-// get joined ap info
 void l5_wifi_get_joined_ap(wifi_ap_t *ap) {
     char *buf = pvPortMalloc(120);
     char *p;
@@ -571,7 +563,6 @@ void l5_wifi_get_joined_ap(wifi_ap_t *ap) {
     vPortFree(buf);
 }
 
-// join to spec ap
 wifi_err_t l5_wifi_join_ap(const char *ssid, const char *pwd) {
     char *cmd_buf = pvPortMalloc(128);
     int real_cmd_len = sprintf(cmd_buf, "AT+CWJAP=\"%s\",\"%s\"\r\n", ssid, pwd);
@@ -580,8 +571,6 @@ wifi_err_t l5_wifi_join_ap(const char *ssid, const char *pwd) {
     return esp8266.err;
 }
 
-
-// get station's information(ip, mask, gateway)
 wifi_err_t l5_wifi_get_sta_ip(wifi_sta_ip_t *ip) {
     char *buf = pvPortMalloc(120);
 
@@ -630,7 +619,6 @@ wifi_err_t l5_wifi_get_sta_ip(wifi_sta_ip_t *ip) {
     return esp8266.err;
 }
 
-// scan ap list with available
 wifi_err_t l5_wifi_scan_ap_list(wifi_ap_t list[], uint8_t limit) {
     char *buf = pvPortMalloc(128 * 5);
     char *p;
@@ -685,13 +673,11 @@ wifi_err_t l5_wifi_scan_ap_list(wifi_ap_t list[], uint8_t limit) {
     return wifi_ok;
 }
 
-// leave current joined ap
 wifi_err_t l5_wifi_exit_ap() {
     esp8266_exec("AT+CWQAP\r\n", 10, simple_rsp_ok);
     return esp8266.err;
 }
 
-// get soft ap config
 wifi_err_t l5_wifi_get_hotspot(wifi_hotspot_t *opt) {
     char *buf = pvPortMalloc(128);
     char *p = NULL;
@@ -731,7 +717,6 @@ wifi_err_t l5_wifi_get_hotspot(wifi_hotspot_t *opt) {
     return wifi_ok;
 }
 
-// set soft ap config
 wifi_err_t l5_wifi_set_hotspot(wifi_hotspot_t *opt) {
     char *cmd_buf = pvPortMalloc(128);
     int real_cmd_len = sprintf(cmd_buf,
@@ -959,7 +944,7 @@ static inline void esp8266_write_dat(const void *buf, uint16_t buf_len) {
     }
 
     /* step3. compare suffix only */
-    int rsp_len = strnlen(esp8266.command_response, exec_rx_buf_size - 1);
+    int rsp_len = strnlen(esp8266.command_response, dma_rx_buf_size - 1);
     if (strncmp(esp8266.command_response + (rsp_len - 4), "\r\n> ", 4) != 0) {
         esp8266.err = wifi_invalid_response;
         goto END;
@@ -1007,7 +992,7 @@ static inline void esp8266_exec(const char *cmd, uint16_t cmd_len, const char *r
     }
 
     /* step3. compare suffix only */
-    int rsp_len = strnlen(esp8266.command_response, exec_rx_buf_size - 1);
+    int rsp_len = strnlen(esp8266.command_response, dma_rx_buf_size - 1);
     if (strncmp(esp8266.command_response + (rsp_len - strlen(rsp_suffix)), rsp_suffix, strlen(rsp_suffix)) != 0) {
         esp8266.err = wifi_error;
     }
@@ -1037,7 +1022,7 @@ static inline void esp8266_query(const char *cmd, uint16_t cmdSize, uint8_t *buf
     }
 
     /* FIXME: possible overflow of buf */
-    memcpy(buf, esp8266.command_response, strnlen(esp8266.command_response, exec_rx_buf_size - 1));
+    memcpy(buf, esp8266.command_response, strnlen(esp8266.command_response, dma_rx_buf_size - 1));
 
     END:
     esp8266.state = command_idle;
