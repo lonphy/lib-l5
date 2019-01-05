@@ -8,14 +8,10 @@
 #include "mcu.h"
 #include "main.h"
 
-extern UART_HandleTypeDef hUart1;
-
 void hw_uart_init();
 
-// uart Rx complete callback
-void L5_UART1_RxCpltCallback(UART_HandleTypeDef *hUart);
-
-// uart Err callback
-void L5_UART1_ErrorCallback(UART_HandleTypeDef *hUart);
+void hw_usart_start_dma_rx(void * buf, uint32_t len);
+void hw_usart_start_dma_tx(void * buf, uint32_t len);
+uint32_t hw_usart_get_dma_rx_length();
 
 #endif //RTOS_UART_H

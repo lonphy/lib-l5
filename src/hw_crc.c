@@ -1,45 +1,27 @@
 #include "hw_crc.h"
 
-/* USER CODE BEGIN 0 */
-
-/* USER CODE END 0 */
-
-CRC_HandleTypeDef hcrc;
 
 /* CRC init function */
 void hw_crc_init(void) {
 
-    hcrc.Instance = CRC;
-    if (HAL_CRC_Init(&hcrc) != HAL_OK) {
-        Error_Handler();
-    }
-
+    LL_AHB1_GRP1_EnableClock(LL_AHB1_GRP1_PERIPH_CRC);
 }
 
-void HAL_CRC_MspInit(CRC_HandleTypeDef *crcHandle) {
+/**
+  * @brief  This function performs CRC calculation on BufferSize bytes from input data buffer aDataBuffer.
+  * @param  BufferSize Nb of bytes to be processed for CRC calculation
+  * @retval 32-bit CRC value computed on input data buffer
+  */
+uint32_t hw_crc32(const uint8_t *buf, uint32_t size) {
+    register uint32_t data = 0;
+    register uint32_t index = 0;
 
-    if (crcHandle->Instance == CRC) {
-        /* USER CODE BEGIN CRC_MspInit 0 */
-
-        /* USER CODE END CRC_MspInit 0 */
-        /* CRC clock enable */
-        __HAL_RCC_CRC_CLK_ENABLE();
-        /* USER CODE BEGIN CRC_MspInit 1 */
-
-        /* USER CODE END CRC_MspInit 1 */
+    /* Compute the CRC of Data Buffer array*/
+    for (index = 0; index < (size / 4); index++) {
+        data = (uint32_t) ((buf[4 * index + 3] << 24) | (buf[4 * index + 2] << 16) | (buf[4 * index + 1] << 8) |
+                           buf[4 * index]);
+        LL_CRC_FeedData32(CRC, data);
     }
-}
 
-void HAL_CRC_MspDeInit(CRC_HandleTypeDef *crcHandle) {
-
-    if (crcHandle->Instance == CRC) {
-        /* USER CODE BEGIN CRC_MspDeInit 0 */
-
-        /* USER CODE END CRC_MspDeInit 0 */
-        /* Peripheral clock disable */
-        __HAL_RCC_CRC_CLK_DISABLE();
-        /* USER CODE BEGIN CRC_MspDeInit 1 */
-
-        /* USER CODE END CRC_MspDeInit 1 */
-    }
+    return (LL_CRC_ReadData32(CRC));
 }

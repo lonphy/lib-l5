@@ -3,6 +3,7 @@
 //
 #include <lib_l5.h>
 #include <string.h>
+#include <stdio.h>
 
 #ifdef L5_USE_ESP8266
 
@@ -66,20 +67,15 @@ void task_wifi(__unused void const *arg) {
 
     { /* query Wifi's information */
         wifi_sta_ip_t local_ip;
-        l5_wifi_get_sta_ip(&local_ip);
 
-        wifi_log("IP: %ld.%ld.%ld.%ld/%d",
-                 (local_ip.ip >> 24) & 0xff,
-                 (local_ip.ip >> 16) & 0xff,
-                 (local_ip.ip >> 8) & 0xff,
-                 local_ip.ip & 0xff,
-                 local_ip.mask);
+        while (1) {
+            l5_wifi_get_sta_ip(&local_ip);
 
-        wifi_log("GW: %ld.%ld.%ld.%ld",
-                 (local_ip.gateway >> 24) & 0xff,
-                 (local_ip.gateway >> 16) & 0xff,
-                 (local_ip.gateway >> 8) & 0xff,
-                 local_ip.gateway & 0xff);
+            if (local_ip.ip > 0 ) {
+                break;
+            }
+            osDelay(500);
+        }
     }
 
     {
@@ -101,7 +97,7 @@ void task_wifi(__unused void const *arg) {
         if (err != wifi_ok) {
             Error_Handler();
         }
-        char *buf = NULL;
+        uint8_t *buf = NULL;
         uint16_t size = 0;
 
         uint8_t count = 0;
@@ -110,7 +106,10 @@ void task_wifi(__unused void const *arg) {
             if (err == wifi_timeout) {
                 continue;
             }
-            buf[0] = count++;
+            if(++count == 0) {
+                count = 1;
+            }
+            buf[0] = count;
             err = l5_tcp_write(buf, size);
             if (err != wifi_ok) {
                 Error_Handler();

@@ -32,14 +32,15 @@ extern "C" {
 /*------------ LCD1602 config -------------- */
 /*------------ ESP8266 config -------------- */
 #ifdef L5_USE_ESP8266
-#define ESP8266_USART     UART4_BASE
-#define ESP8266_BAUD_RATE 115200
-// #define ESP8266_RUN_BAUD_RATE 460800
-#define ESP8266_GPIO      GPIOC
-#define ESP8266_Tx        GPIO_PIN_10
-#define ESP8266_Rx        GPIO_PIN_11
+#define WIFI_USART        UART4
+#define WIFI_BAUD_RATE    115200
+#define WIFI_GPIO         GPIOC
+#define WIFI_Tx           LL_GPIO_PIN_10
+#define WIFI_Rx           LL_GPIO_PIN_11
 #define AP_SSID           "ChinaNet-l5-client"
 #define AP_PWD            "lonphy0814"
+#define WIFI_ENABLE_GPIO  GPIOC
+#define WIFI_ENABLE_PIN   LL_GPIO_PIN_6 /* for stm32f103rct6 */
 #endif
 /*------------ ESP8266 config -------------- */
 
@@ -60,7 +61,7 @@ extern "C" {
 /*------------ LED config -------------- */
 #ifdef L5_USE_LED
 #define LED_GPIO GPIOC
-#define LED_LED1_PIN GPIO_PIN_13 // PC13
+#define LED_LED1_PIN LL_GPIO_PIN_13 // PC13
 
 #endif
 /*------------ LED config -------------- */

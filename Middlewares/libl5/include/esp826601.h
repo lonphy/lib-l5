@@ -78,7 +78,7 @@ typedef struct {
     uint32_t gateway;
 } wifi_sta_ip_t;
 
-#define dma_rx_buf_size  512U
+#define dma_rx_buf_size  640U
 
 typedef struct {
     const char *command;               /* activity at command */
@@ -132,11 +132,6 @@ typedef struct net_dat_t {
  * @brief Init ESP8266
  */
 wifi_err_t l5_wifi_init(uint16_t tx_timeout, uint16_t rx_timeout);
-
-/**
- * @brief Reset ESP8266
- */
-wifi_err_t l5_wifi_reset();
 
 /**
  * @brief Set low level uart baud rate
@@ -249,5 +244,12 @@ wifi_err_t l5_tcp_read(void **buf, uint16_t *buf_len, uint32_t timeout);
  * @brief Close TCP Connection
  */
 wifi_err_t l5_tcp_close(void);
+
+/**
+ * tx complete
+ * @param err
+ */
+void l5_tx_complete(wifi_err_t err);
+void L5_rx_receive(wifi_err_t err);
 
 #endif // __LIB_L5_ESP8266_01_H__

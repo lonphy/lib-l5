@@ -8,9 +8,9 @@
 #include "mcu.h"
 #include "main.h"
 
-extern CRC_HandleTypeDef hcrc;
-
 void hw_crc_init(void);
+
+uint32_t hw_crc32(const uint8_t * buf, uint32_t size);
 
 #ifdef __cplusplus
 }

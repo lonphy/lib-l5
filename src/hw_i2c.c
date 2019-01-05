@@ -4,54 +4,49 @@
 
 #include "hw_i2c.h"
 
-
-I2C_HandleTypeDef hI2C1;
-
 void hw_i2c_init() {
-    hI2C1.Instance = I2C1;
-    hI2C1.Init.ClockSpeed = 400000; /* 400K */
-    hI2C1.Init.DutyCycle = I2C_DUTYCYCLE_2;
-    hI2C1.Init.OwnAddress1 = 0x30;
-    hI2C1.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
-    hI2C1.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
-    hI2C1.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
-    hI2C1.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
-    HAL_I2C_Init(&hI2C1);
-}
 
-void HAL_I2C_MspInit(I2C_HandleTypeDef *h) {
-    GPIO_InitTypeDef gpioOpt;
-    if (h->Instance == I2C1) {
-        /* *
-         * PB6 -> I2C1.SCL
-         * PB7 -> I2C1.SDA
-         */
-        gpioOpt.Pin = GPIO_PIN_6 | GPIO_PIN_7;
-        gpioOpt.Mode = GPIO_MODE_AF_OD;
-#ifdef STM32F1
-        gpioOpt.Speed = GPIO_SPEED_FREQ_HIGH;
-#elif STM32F4
-        gpioOpt.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
-        gpioOpt.Pull = GPIO_PULLUP;
-        gpioOpt.Alternate = GPIO_AF4_I2C1;
-#endif
-        HAL_GPIO_Init(GPIOB, &gpioOpt);
+    /* Enable the I2C1 peripheral clock *************************************/
 
-        __HAL_RCC_I2C1_CLK_ENABLE();
-    }
-}
+    /* Enable the peripheral clock for I2C1 */
+    LL_APB1_GRP1_EnableClock(LL_APB1_GRP1_PERIPH_I2C1);
 
-void HAL_I2C_MspDeInit(I2C_HandleTypeDef* h)
-{
+    /* Configure SCL Pin as : Alternate function, High Speed, Open drain, Pull up */
+    LL_GPIO_SetPinMode(GPIOB, LL_GPIO_PIN_6, LL_GPIO_MODE_ALTERNATE);
+    LL_GPIO_SetPinSpeed(GPIOB, LL_GPIO_PIN_6, LL_GPIO_SPEED_FREQ_HIGH);
+    LL_GPIO_SetPinOutputType(GPIOB, LL_GPIO_PIN_6, LL_GPIO_OUTPUT_OPENDRAIN);
+    LL_GPIO_SetPinPull(GPIOB, LL_GPIO_PIN_6, LL_GPIO_PULL_UP);
 
-    if(h->Instance==I2C1)
-    {
-        __HAL_RCC_I2C1_CLK_DISABLE();
+    /* Configure SDA Pin as : Alternate function, High Speed, Open drain, Pull up */
+    LL_GPIO_SetPinMode(GPIOB, LL_GPIO_PIN_7, LL_GPIO_MODE_ALTERNATE);
+    LL_GPIO_SetPinSpeed(GPIOB, LL_GPIO_PIN_7, LL_GPIO_SPEED_FREQ_HIGH);
+    LL_GPIO_SetPinOutputType(GPIOB, LL_GPIO_PIN_7, LL_GPIO_OUTPUT_OPENDRAIN);
+    LL_GPIO_SetPinPull(GPIOB, LL_GPIO_PIN_7, LL_GPIO_PULL_UP);
 
-        /**I2C1 GPIO Configuration
-        PB6     ------> I2C1_SCL
-        PB7     ------> I2C1_SDA
-        */
-        HAL_GPIO_DeInit(GPIOB, GPIO_PIN_6|GPIO_PIN_7);
-    }
+    /* Configure Event IT:
+       *  - Set priority for I2C1_EV_IRQn
+       *  - Enable I2C1_EV_IRQn
+       */
+    // NVIC_SetPriority(I2C1_EV_IRQn, 0);
+    // NVIC_EnableIRQ(I2C1_EV_IRQn);
+
+    /* Configure Error IT:
+     *  - Set priority for I2C1_ER_IRQn
+     *  - Enable I2C1_ER_IRQn
+     */
+    // NVIC_SetPriority(I2C1_ER_IRQn, 0);
+    // NVIC_EnableIRQ(I2C1_ER_IRQn);
+
+    LL_RCC_ClocksTypeDef rcc_clocks;
+    LL_RCC_GetSystemClocksFreq(&rcc_clocks);
+
+    /* Configure the SCL Clock Speed */
+    LL_I2C_ConfigSpeed(I2C1, rcc_clocks.PCLK1_Frequency, 400000/* 400K */, LL_I2C_DUTYCYCLE_2);
+
+    /* Configure the Own Address1                   */
+    /* Reset Values of :
+     *     - OwnAddress1 is 0x30
+     *     - OwnAddrSize is LL_I2C_OWNADDRESS1_7BIT
+     */
+    LL_I2C_SetOwnAddress1(I2C1, 0x30, LL_I2C_OWNADDRESS1_7BIT);
 }
