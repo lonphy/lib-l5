@@ -21,17 +21,6 @@
 #include <stm32f1xx_ll_i2c.h>
 #include <stm32f1xx_ll_crc.h>
 
-#elif defined(STM32F4)
-
-#include <stm32f4xx_hal.h>
-
-#elif defined(STM32H7)
-    #error not support
-#else
-    #error no MCU specified
-#endif
-/* ----------- mcu family core header file ----------------*/
-
 #ifndef NVIC_PRIORITYGROUP_0
 #define NVIC_PRIORITYGROUP_0         ((uint32_t)0x00000007) /*!< 0 bit  for pre-emption priority,
                                                                  4 bits for subpriority */
@@ -44,5 +33,22 @@
 #define NVIC_PRIORITYGROUP_4         ((uint32_t)0x00000003) /*!< 4 bits for pre-emption priority,
                                                                  0 bit  for subpriority */
 #endif
+
+#define L5_NVIC_SetPriority(irq, priority) do{              \
+    NVIC_SetPriority(irq, NVIC_EncodePriority(NVIC_GetPriorityGrouping(), priority,0)); \
+}while(0)
+
+#elif defined(STM32F4)
+
+#include <stm32f4xx_hal.h>
+
+#elif defined(STM32H7)
+#error not support
+#else
+#error no MCU specified
+#endif
+/* ----------- mcu family core header file ----------------*/
+
+
 
 #endif //__LIB_L5_MCU_H__

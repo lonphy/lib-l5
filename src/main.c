@@ -72,8 +72,8 @@ void ll_init(void) {
     LL_APB1_GRP1_EnableClock(LL_APB1_GRP1_PERIPH_PWR);
 
     NVIC_SetPriorityGrouping(NVIC_PRIORITYGROUP_4);
-    NVIC_SetPriority(PendSV_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(), 15, 0));
-    NVIC_SetPriority(SysTick_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(), 15, 0));
+    L5_NVIC_SetPriority(PendSV_IRQn, 15);
+    L5_NVIC_SetPriority(PendSV_IRQn, 15);
 
 #ifdef STM32F1
     LL_GPIO_AF_Remap_SWJ_NOJTAG();

@@ -49,14 +49,14 @@ void hw_uart_init() {
     }
 
     {
-        NVIC_SetPriority(WIFI_Rx_DMA_IRQn, 14);
+        L5_NVIC_SetPriority(WIFI_Rx_DMA_IRQn, 14);
         NVIC_EnableIRQ(WIFI_Rx_DMA_IRQn);
 
-        NVIC_SetPriority(WIFI_Tx_DMA_IRQn, 14);
+        L5_NVIC_SetPriority(WIFI_Tx_DMA_IRQn, 14);
         NVIC_EnableIRQ(WIFI_Tx_DMA_IRQn);
 
         LL_USART_EnableIT_IDLE(WIFI_USART);
-        NVIC_SetPriority(WIFI_UART_IRQn, 15);
+        L5_NVIC_SetPriority(WIFI_UART_IRQn, 15);
         NVIC_EnableIRQ(WIFI_UART_IRQn);
     }
 
@@ -109,8 +109,8 @@ void hw_usart_start_dma_tx(void *buf, uint32_t len) {
 
     LL_DMA_SetDataLength(WIFI_DMA, WIFI_Tx_DMA_Chx, len);
 
+    LL_USART_EnableDMAReq_TX(WIFI_USART);
     LL_DMA_EnableChannel(WIFI_DMA, WIFI_Tx_DMA_Chx);
-    LL_USART_EnableDMAReq_RX(WIFI_USART);
 }
 
 void hw_usart_start_dma_rx(void *buf, uint32_t len) {
@@ -125,9 +125,9 @@ void hw_usart_start_dma_rx(void *buf, uint32_t len) {
 
     LL_DMA_SetDataLength(WIFI_DMA, WIFI_Rx_DMA_Chx, len);
 
-    LL_DMA_EnableChannel(WIFI_DMA, WIFI_Rx_DMA_Chx);
 
     LL_USART_EnableDMAReq_RX(WIFI_USART);
+    LL_DMA_EnableChannel(WIFI_DMA, WIFI_Rx_DMA_Chx);
 }
 
 void WIFI_Rx_DMA_IRQHandler(void) {
