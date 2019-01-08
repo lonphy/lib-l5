@@ -34,6 +34,7 @@ extern "C" {
 #ifdef L5_USE_ESP8266
 #define WIFI_USART        UART4
 #define WIFI_BAUD_RATE    115200
+#define WIFI_WORK_BAUD_RATE 2250000 /* worker run baud rate */
 #define WIFI_GPIO         GPIOC
 #define WIFI_Tx           LL_GPIO_PIN_10
 #define WIFI_Rx           LL_GPIO_PIN_11

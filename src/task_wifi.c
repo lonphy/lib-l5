@@ -28,6 +28,18 @@ void task_wifi(__unused void const *arg) {
     }
     wifi_log("init success");
 
+    uint32_t baudRate = 0;
+    if (wifi_ok != l5_wifi_get_baudrate(&baudRate)) {
+        wifi_log("get worker baud rate error");
+        Error_Handler();
+    }
+    wifi_log("baud rate is %lu", baudRate);
+
+    if (wifi_ok != l5_wifi_set_baudrate(WIFI_BAUD_RATE)) {
+        wifi_log("set worker baud rate error");
+        Error_Handler();
+    }
+
     /* query work mode, insure it's Station mode */
     if (l5_wifi_get_work_mode() != work_mode_station) {
         wifi_log("current work mode is not station");

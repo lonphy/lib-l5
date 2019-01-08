@@ -67,8 +67,8 @@ void response_parser_task(__unused const void *arg) {
 
         while (pProcessing - buf < size) {
             /* skip all `\r\n` */
-            while (*pProcessing == '\r') {
-                pProcessing += 2;
+            while (*pProcessing == '\r' || *pProcessing == '\n') {
+                ++pProcessing;
             }
 
             if (IPDFlag == 1) {
@@ -78,7 +78,7 @@ void response_parser_task(__unused const void *arg) {
                     need_dat_size -= size;
                     break;
                 } else {
-                    memcpy(dat->raw, pProcessing, need_dat_size);
+                    memcpy(dat->raw+(dat->rawSize - need_dat_size), pProcessing, need_dat_size);
                     dat->raw[dat->rawSize] = 0;
                     osMessagePut(esp8266.dat_queue, (uint32_t) dat, 10);
                     pProcessing += need_dat_size;
@@ -97,7 +97,7 @@ void response_parser_task(__unused const void *arg) {
                 current_frame_size = size - (p-buf);
 
                 // check frame data is enough
-                if (current_frame_size > dat->rawSize) {
+                if (current_frame_size >= dat->rawSize) {
                     memcpy(dat->raw, p, dat->rawSize);
                     dat->raw[dat->rawSize] = 0;
                     osMessagePut(esp8266.dat_queue, (uint32_t) dat, 10);
@@ -167,17 +167,17 @@ void response_parser_task(__unused const void *arg) {
 
                     /* response with query command prefix */
                     if (*(pProcessing + 1) == esp8266.command[3]) {
-                        p = strstr(pProcessing, "\r\n\r\nOK\r\n");
+                        p = strstr(pProcessing, "\r\nOK\r\n");
                         if (p) {
-                            size1 = (p + 8 - pProcessing);
+                            size1 = (p + 6 - pProcessing);
                             alloc_command_response(size1, pProcessing);
                             pProcessing += size1;
                             continue;
                         }
 
-                        p = strstr(pProcessing, "\r\n\r\nERROR\r\n");
+                        p = strstr(pProcessing, "\r\nERROR\r\n");
                         if (p) {
-                            size1 = (p + 11 - pProcessing);
+                            size1 = (p + 9 - pProcessing);
                             alloc_command_response(size1, pProcessing);
                             pProcessing += size1;
                             continue;
@@ -234,11 +234,11 @@ void response_parser_task(__unused const void *arg) {
 
             if (strstr(pProcessing, "WIFI CONNECTED")) {
                 pProcessing += 16; /* skip suffix \r\n */
-                break;
+                continue;
             }
             if (strstr(pProcessing, "WIFI GOT IP")) {
                 pProcessing += 13; /* skip suffix \r\n */
-                break;
+                continue;
             }
 
             /* never goes to here, occurs when at fw version not 1.6 */
@@ -290,6 +290,7 @@ wifi_err_t l5_wifi_init(uint16_t tx_timeout, uint16_t rx_timeout) {
 
     hw_usart_start_dma_rx(esp8266.rx_buf[1], dma_rx_buf_size);
 
+    esp8266_exec("AT\r\n", 4, simple_rsp_ok);
     /* close echo */
     esp8266_exec("ATE0\r\n", 6, simple_rsp_ok);
 
@@ -308,7 +309,7 @@ wifi_err_t l5_wifi_set_baudrate(uint32_t baud) {
     }
 
     char *buf = pvPortMalloc(32);
-    int len = sprintf(buf, "AT+UART=%lu,8,1,0,0", baud);
+    int len = sprintf(buf, "AT+UART_CUR=%lu,8,1,0,0", baud);
 
     esp8266_exec(buf, (uint16_t) len, simple_rsp_ok);
     if (esp8266.err != wifi_ok) {
@@ -323,15 +324,14 @@ wifi_err_t l5_wifi_set_baudrate(uint32_t baud) {
 
 wifi_err_t l5_wifi_get_baudrate(uint32_t *baud) {
     char *buf = pvPortMalloc(64);
-    esp8266_query("AT+UART?\r\n", 10, (uint8_t *) buf, 64);
+    esp8266_query("AT+UART_CUR?\r\n", 14, (uint8_t *) buf, 64);
     if (esp8266.err != wifi_ok) {
         vPortFree(buf);
         return esp8266.err;
     }
-    char *p = strstr(buf, "+UART:");
+    char *p = strstr(buf, "+UART_CUR:");
     if (p) {
-        p += 6;
-        *baud = (uint32_t) strtol(p, NULL, 10);
+        *baud = (uint32_t) strtol(p+10, NULL, 10);
     }
     vPortFree(buf);
     return esp8266.err;

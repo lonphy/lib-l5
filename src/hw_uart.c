@@ -66,6 +66,9 @@ static inline void hw_uart_dma_init() {
                               LL_DMA_MEMORY_INCREMENT |
                               LL_DMA_PDATAALIGN_BYTE |
                               LL_DMA_MDATAALIGN_BYTE);
+
+        L5_NVIC_SetPriority(WIFI_Tx_DMA_IRQn, 14);
+        NVIC_EnableIRQ(WIFI_Tx_DMA_IRQn);
     }
 
     {/* Configure the DMA for UART Rx */
@@ -77,14 +80,10 @@ static inline void hw_uart_dma_init() {
                               LL_DMA_MEMORY_INCREMENT |
                               LL_DMA_PDATAALIGN_BYTE |
                               LL_DMA_MDATAALIGN_BYTE);
-    }
-    {
         L5_NVIC_SetPriority(WIFI_Rx_DMA_IRQn, 14);
         NVIC_EnableIRQ(WIFI_Rx_DMA_IRQn);
-
-        L5_NVIC_SetPriority(WIFI_Tx_DMA_IRQn, 14);
-        NVIC_EnableIRQ(WIFI_Tx_DMA_IRQn);
-
+    }
+    {
         LL_DMA_EnableIT_TC(WIFI_DMA, WIFI_Rx_DMA_Chx);
         LL_DMA_EnableIT_TE(WIFI_DMA, WIFI_Rx_DMA_Chx);
 
@@ -97,27 +96,19 @@ void hw_uart_init() {
     /* enable uart and it's DMA clock */
     LL_APB1_GRP1_EnableClock(LL_APB1_GRP1_PERIPH_UART4);
 
-    { /* uart gpio pin config */
+    {/* uart gpio pin config */
+
+        // MODIFY_REG(WIFI_GPIO->CRH, 0x0000ff00, 0x00008B00);
         /* Tx : Alternate function, High Speed, Push pull, Pull up */
-//        LL_GPIO_SetPinMode(WIFI_GPIO, WIFI_Tx, LL_GPIO_MODE_ALTERNATE);
-//        LL_GPIO_SetPinOutputType(WIFI_GPIO, WIFI_Tx, LL_GPIO_OUTPUT_PUSHPULL);
-//        LL_GPIO_SetPinSpeed(WIFI_GPIO, WIFI_Tx, LL_GPIO_SPEED_FREQ_HIGH);
-//
-//        /* Rx : Alternate function, High Speed, Push pull, Pull up */
-//        LL_GPIO_SetPinMode(WIFI_GPIO, WIFI_Rx, LL_GPIO_MODE_FLOATING);
-//        LL_GPIO_SetPinPull(WIFI_GPIO, WIFI_Rx, LL_GPIO_PULL_UP);
-        LL_GPIO_InitTypeDef gpioOpt = {
-                .Pin = WIFI_Tx,
-                .Mode = LL_GPIO_MODE_ALTERNATE,
-                .Speed = LL_GPIO_SPEED_FREQ_HIGH,
-                .OutputType = LL_GPIO_OUTPUT_PUSHPULL,
-        };
+        LL_GPIO_SetPinMode(WIFI_GPIO, WIFI_Tx, LL_GPIO_MODE_ALTERNATE);
+        LL_GPIO_SetPinOutputType(WIFI_GPIO, WIFI_Tx, LL_GPIO_OUTPUT_PUSHPULL);
+        LL_GPIO_SetPinSpeed(WIFI_GPIO, WIFI_Tx, LL_GPIO_SPEED_FREQ_HIGH);
 
-        LL_GPIO_Init(GPIOC, &gpioOpt);
+        /* Rx : Alternate function, High Speed, Push pull, Pull up */
+        LL_GPIO_SetPinMode(WIFI_GPIO, WIFI_Tx, LL_GPIO_MODE_ALTERNATE);
+        LL_GPIO_SetPinMode(WIFI_GPIO, WIFI_Rx, LL_GPIO_MODE_FLOATING);
+        LL_GPIO_SetPinPull(WIFI_GPIO, WIFI_Rx, LL_GPIO_PULL_UP);
 
-        gpioOpt.Pin = WIFI_Rx;
-        gpioOpt.Mode = LL_GPIO_MODE_INPUT;
-        LL_GPIO_Init(GPIOC, &gpioOpt);
     }
 
     hw_uart_dma_init();
@@ -170,6 +161,8 @@ void hw_usart_start_dma_rx(void *buf, uint32_t len) {
 
     WIFI_Rx_DMA_On();
 }
+
+
 
 void WIFI_Rx_DMA_IRQHandler(void) {
     if (LL_DMA_IsActiveFlag_TC3(WIFI_DMA)) {
