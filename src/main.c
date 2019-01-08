@@ -55,7 +55,6 @@ int main(void) {
             osThreadDef(oled, task_oled, osPriorityNormal, 0, 1024);
             osThreadCreate(osThread(oled), NULL);
          */
-
         osThreadDef(wifi, task_wifi, osPriorityNormal, 1, 4096);
         osThreadCreate(osThread(wifi), NULL);
     }
@@ -104,10 +103,6 @@ void system_clock_config(void) {
     LL_RCC_SetAPB2Prescaler(LL_RCC_APB2_DIV_1);
     LL_RCC_SetSysClkSource(LL_RCC_SYS_CLKSOURCE_PLL);
     while (LL_RCC_GetSysClkSource() != LL_RCC_SYS_CLKSOURCE_STATUS_PLL);
-
-    /* Set APB1 & APB2 prescaler*/
-    LL_RCC_SetAPB1Prescaler(LL_RCC_APB1_DIV_2);
-    LL_RCC_SetAPB2Prescaler(LL_RCC_APB2_DIV_1);
 
     /* Set systick to 1ms in using frequency set to 72MHz */
     LL_Init1msTick(72000000);

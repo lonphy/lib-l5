@@ -251,14 +251,6 @@ void response_parser_task(__unused const void *arg) {
 }
 
 wifi_err_t l5_wifi_init(uint16_t tx_timeout, uint16_t rx_timeout) {
-
-    {
-        LL_GPIO_ResetOutputPin(WIFI_ENABLE_GPIO, WIFI_ENABLE_PIN);
-        osDelay(100);
-        LL_GPIO_SetOutputPin(WIFI_ENABLE_GPIO, WIFI_ENABLE_PIN);
-        osDelay(5000);
-    }
-
     osMutexDef(rw_lock); /* for write */
     osSemaphoreDef(parse_sem);
     osSemaphoreDef(tc_sem);
