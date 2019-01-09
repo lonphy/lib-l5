@@ -8,6 +8,7 @@
 void _error_handler(char *, int);
 
 #define Error_Handler() _error_handler(__FILE__, __LINE__)
+
 #ifdef __cplusplus
 }
 #endif

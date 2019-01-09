@@ -60,7 +60,7 @@ endmacro(set_mcu_info)
 # 这只编译器信息
 macro(setup_compiler)
 
-    set(COMMON_MARCO "-DUSE_HAL_LIBRARY -D${MCU_FAMILY} -D${MCU_REF}")
+    set(COMMON_MARCO "-D${MCU_FAMILY} -D${MCU_REF} -DUSE_FULL_LL_DRIVER")
     set(COMMON_FLAGS "${COMMON_MARCO} ${MCU_FLAG}")
     set(COMMON_FLAGS "${COMMON_FLAGS} -lc -lm --specs=nosys.specs --specs=nano.specs")
     set(COMMON_FLAGS "${COMMON_FLAGS} -Wall -g")

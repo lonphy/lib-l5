@@ -3,125 +3,193 @@
 //
 
 #include "hw_uart.h"
+#include <lib_l5.h>
 
-UART_HandleTypeDef hUart1;
+#define WIFI_UART_IRQn           UART4_IRQn
+#define WIFI_UART_IRQHandler     UART4_IRQHandler
 
-static inline void uartInit(UART_HandleTypeDef *h, USART_TypeDef *usart, uint32_t baudRate, IRQn_Type ir) {
-    h->Instance = usart;
-    h->Init.BaudRate = baudRate;
-    h->Init.Mode = UART_MODE_TX_RX;
+#if defined(STM32F1)
+#define WIFI_DMA                 DMA2
 
-    if (HAL_UART_Init(h) != HAL_OK) {
-        Error_Handler();
+#define WIFI_Tx_DMA_Chx          LL_DMA_CHANNEL_5
+#define WIFI_Tx_DMA_IRQHandler   DMA2_Channel4_5_IRQHandler
+#define WIFI_Tx_DMA_IRQn         DMA2_Channel4_5_IRQn
+
+#define WIFI_Rx_DMA_Chx          LL_DMA_CHANNEL_3
+#define WIFI_Rx_DMA_IRQHandler   DMA2_Channel3_IRQHandler
+#define WIFI_Rx_DMA_IRQn         DMA2_Channel3_IRQn
+
+static inline void WIFI_Rx_DMA_Off() {
+    LL_DMA_ClearFlag_GI3(WIFI_DMA);
+    LL_USART_DisableDMAReq_RX(WIFI_USART);
+    LL_DMA_DisableChannel(WIFI_DMA, WIFI_Rx_DMA_Chx);
+}
+
+static inline void WIFI_Tx_DMA_Off() {
+    LL_DMA_ClearFlag_GI5(WIFI_DMA);
+    LL_USART_DisableDMAReq_TX(WIFI_USART);
+    LL_DMA_DisableChannel(WIFI_DMA, WIFI_Tx_DMA_Chx);
+}
+
+static inline void WIFI_Rx_DMA_On() {
+    LL_USART_EnableDMAReq_RX(WIFI_USART);
+    LL_DMA_EnableChannel(WIFI_DMA, WIFI_Rx_DMA_Chx);
+}
+
+static inline void WIFI_Tx_DMA_On() {
+    LL_USART_EnableDMAReq_TX(WIFI_USART);
+    LL_DMA_EnableChannel(WIFI_DMA, WIFI_Tx_DMA_Chx);
+}
+
+#elif defined(STM32F4)
+#define WIFI_DMA                 DMA1
+
+#define WIFI_Tx_DMA_Chx          LL_DMA_STREAM_4
+#define WIFI_Tx_DMA_IRQn         DMA1_Stream4_IRQn
+#define WIFI_Tx_DMA_IRQHandler   DMA1_Stream4_IRQHandler
+
+#define WIFI_Rx_DMA_Chx          LL_DMA_STREAM_2
+#define WIFI_Rx_DMA_IRQn         DMA1_Stream2_IRQn
+#define WIFI_Rx_DMA_IRQHandler   DMA1_Stream2_IRQHandler
+#endif
+
+static inline void hw_uart_dma_init() {
+
+    LL_AHB1_GRP1_EnableClock(LL_AHB1_GRP1_PERIPH_DMA2);
+
+    {/* Configure the DMA for UART Tx */
+        LL_DMA_ConfigTransfer(WIFI_DMA, WIFI_Tx_DMA_Chx,
+                              LL_DMA_DIRECTION_MEMORY_TO_PERIPH |
+                              LL_DMA_PRIORITY_VERYHIGH |
+                              LL_DMA_MODE_NORMAL |
+                              LL_DMA_PERIPH_NOINCREMENT |
+                              LL_DMA_MEMORY_INCREMENT |
+                              LL_DMA_PDATAALIGN_BYTE |
+                              LL_DMA_MDATAALIGN_BYTE);
+
+        L5_NVIC_SetPriority(WIFI_Tx_DMA_IRQn, 14);
+        NVIC_EnableIRQ(WIFI_Tx_DMA_IRQn);
     }
 
-    if (ir == USART1_IRQn) {
-        // enable Usart1 interrupt
-        HAL_NVIC_SetPriority(ir, 15, 0);
-        HAL_NVIC_EnableIRQ(ir);
+    {/* Configure the DMA for UART Rx */
+        LL_DMA_ConfigTransfer(WIFI_DMA, WIFI_Rx_DMA_Chx,
+                              LL_DMA_DIRECTION_PERIPH_TO_MEMORY |
+                              LL_DMA_PRIORITY_VERYHIGH |
+                              LL_DMA_MODE_NORMAL |
+                              LL_DMA_PERIPH_NOINCREMENT |
+                              LL_DMA_MEMORY_INCREMENT |
+                              LL_DMA_PDATAALIGN_BYTE |
+                              LL_DMA_MDATAALIGN_BYTE);
+        L5_NVIC_SetPriority(WIFI_Rx_DMA_IRQn, 14);
+        NVIC_EnableIRQ(WIFI_Rx_DMA_IRQn);
+    }
+    {
+        LL_DMA_EnableIT_TC(WIFI_DMA, WIFI_Rx_DMA_Chx);
+        LL_DMA_EnableIT_TE(WIFI_DMA, WIFI_Rx_DMA_Chx);
+
+        LL_DMA_EnableIT_TC(WIFI_DMA, WIFI_Tx_DMA_Chx);
+        LL_DMA_EnableIT_TE(WIFI_DMA, WIFI_Tx_DMA_Chx);
     }
 }
 
 void hw_uart_init() {
-    uartInit(&hUart1, USART1, 115200, USART1_IRQn);
+    /* enable uart and it's DMA clock */
+    LL_APB1_GRP1_EnableClock(LL_APB1_GRP1_PERIPH_UART4);
 
-    /* DMA interrupt configuration */
-//    HAL_NVIC_SetPriority(DMA1_Channel4_IRQn, 1, 1);
-//    HAL_NVIC_EnableIRQ(DMA1_Channel4_IRQn);
-}
+    {/* uart gpio pin config */
 
-void HAL_UART_MspInit(UART_HandleTypeDef *hUart) {
-    //  static DMA_HandleTypeDef  tx1Dma;
-    GPIO_InitTypeDef gpioOpt;
-    if (hUart->Instance == USART1) {
-        __HAL_RCC_USART1_CLK_ENABLE();
-        gpioOpt.Pin = GPIO_PIN_9;
-        gpioOpt.Mode = GPIO_MODE_AF_PP;
-        gpioOpt.Speed = GPIO_SPEED_FREQ_HIGH;
-        HAL_GPIO_Init(GPIOA, &gpioOpt);
+        // MODIFY_REG(WIFI_GPIO->CRH, 0x0000ff00, 0x00008B00);
+        /* Tx : Alternate function, High Speed, Push pull, Pull up */
+        LL_GPIO_SetPinMode(WIFI_GPIO, WIFI_Tx, LL_GPIO_MODE_ALTERNATE);
+        LL_GPIO_SetPinOutputType(WIFI_GPIO, WIFI_Tx, LL_GPIO_OUTPUT_PUSHPULL);
+        LL_GPIO_SetPinSpeed(WIFI_GPIO, WIFI_Tx, LL_GPIO_SPEED_FREQ_HIGH);
 
-        // Not required in other STM32 series, eg F407, H743
-        gpioOpt.Pin = GPIO_PIN_10;
-        gpioOpt.Mode = GPIO_MODE_INPUT;
-        gpioOpt.Pull = GPIO_NOPULL;
-        HAL_GPIO_Init(GPIOA, &gpioOpt);
+        /* Rx : Alternate function, High Speed, Push pull, Pull up */
+        LL_GPIO_SetPinMode(WIFI_GPIO, WIFI_Tx, LL_GPIO_MODE_ALTERNATE);
+        LL_GPIO_SetPinMode(WIFI_GPIO, WIFI_Rx, LL_GPIO_MODE_FLOATING);
+        LL_GPIO_SetPinPull(WIFI_GPIO, WIFI_Rx, LL_GPIO_PULL_UP);
 
-        // config Tx DMA
-//        tx1Dma.Instance = DMA1_Channel4;
-//        tx1Dma.Init.Direction = DMA_MEMORY_TO_PERIPH;
-//        tx1Dma.Init.PeriphInc = DMA_PINC_DISABLE;
-//        tx1Dma.Init.MemInc = DMA_MINC_ENABLE;
-//        tx1Dma.Init.PeriphDataAlignment = DMA_PDATAALIGN_BYTE;
-//        tx1Dma.Init.MemDataAlignment = DMA_MDATAALIGN_BYTE;
-//        tx1Dma.Init.Mode = DMA_NORMAL;
-//        tx1Dma.Init.Priority = DMA_PRIORITY_MEDIUM;
-//
-//
-//        if ( HAL_DMA_Init(&tx1Dma) != HAL_OK ) {
-//            Error_Handler();
-//        }
-//
-//        __HAL_LINKDMA(&hUart1, hdmatx, tx1Dma);
-    } else if (hUart->Instance == USART2) {
+    }
+
+    hw_uart_dma_init();
+    L5_NVIC_SetPriority(WIFI_UART_IRQn, 15);
+    NVIC_EnableIRQ(WIFI_UART_IRQn);
+
+    {/* uart parameter */
+        LL_USART_InitTypeDef uartOpt = {
+                .BaudRate = WIFI_BAUD_RATE,
+                .DataWidth = LL_USART_DATAWIDTH_8B,
+                .StopBits = LL_USART_STOPBITS_1,
+                .Parity = LL_USART_PARITY_NONE,
+                .TransferDirection = LL_USART_DIRECTION_TX_RX,
+        };
+        LL_USART_Init(WIFI_USART, &uartOpt);
+        LL_USART_ConfigAsyncMode(WIFI_USART);
+        LL_USART_EnableIT_IDLE(WIFI_USART);
+        LL_USART_Enable(WIFI_USART);
     }
 }
 
-void HAL_UART_MspDeInit(UART_HandleTypeDef *hUart) {
-    if (hUart->Instance == USART1) {
-        __HAL_RCC_USART1_CLK_DISABLE();
-        HAL_GPIO_DeInit(GPIOA, GPIO_PIN_9 | GPIO_PIN_10);
-        HAL_NVIC_DisableIRQ(USART1_IRQn);
-    } else if (hUart->Instance == USART2) {
-        __HAL_RCC_USART1_CLK_DISABLE();
-        HAL_GPIO_DeInit(GPIOA, GPIO_PIN_2 | GPIO_PIN_3);
-        HAL_NVIC_DisableIRQ(USART2_IRQn);
+uint32_t hw_usart_get_dma_rx_length() {
+    return LL_DMA_GetDataLength(WIFI_DMA, WIFI_Rx_DMA_Chx);
+}
+
+/* start uart tx */
+void hw_usart_start_dma_tx(void *buf, uint32_t len) {
+    LL_DMA_ClearFlag_GI5(WIFI_DMA);
+
+    LL_DMA_ConfigAddresses(WIFI_DMA, WIFI_Tx_DMA_Chx,
+                           (uint32_t) buf,
+                           LL_USART_DMA_GetRegAddr(WIFI_USART),
+                           LL_DMA_DIRECTION_MEMORY_TO_PERIPH);
+
+    LL_DMA_SetDataLength(WIFI_DMA, WIFI_Tx_DMA_Chx, len);
+
+    WIFI_Tx_DMA_On();
+}
+
+/* start uart rx */
+void hw_usart_start_dma_rx(void *buf, uint32_t len) {
+    LL_DMA_ClearFlag_GI3(WIFI_DMA);
+
+    LL_DMA_ConfigAddresses(WIFI_DMA, WIFI_Rx_DMA_Chx,
+                           LL_USART_DMA_GetRegAddr(WIFI_USART),
+                           (uint32_t) buf,
+                           LL_DMA_DIRECTION_PERIPH_TO_MEMORY);
+
+    LL_DMA_SetDataLength(WIFI_DMA, WIFI_Rx_DMA_Chx, len);
+
+    WIFI_Rx_DMA_On();
+}
+
+
+
+void WIFI_Rx_DMA_IRQHandler(void) {
+    if (LL_DMA_IsActiveFlag_TC3(WIFI_DMA)) {
+        WIFI_Rx_DMA_Off();
+        L5_rx_receive(wifi_ok);
+    } else if (LL_DMA_IsActiveFlag_TE3(WIFI_DMA)) {
+        WIFI_Rx_DMA_Off();
+        L5_rx_receive(wifi_ok);
     }
 }
 
-void HAL_UART_RxCpltCallback(UART_HandleTypeDef *hUart) {
-    if (hUart->Instance == USART1) {
-        L5_UART1_RxCpltCallback(hUart);
-    } else if (hUart->Instance == USART2) {
-        L5_UART2_RxCpltCallback(hUart);
-    } else if (hUart->Instance == USART3) {
-        L5_UART3_RxCpltCallback(hUart);
+void WIFI_Tx_DMA_IRQHandler(void) {
+    if (LL_DMA_IsActiveFlag_TC5(WIFI_DMA)) {
+        WIFI_Tx_DMA_Off();
+        l5_tx_complete(wifi_ok);
+    } else if (LL_DMA_IsActiveFlag_TE5(WIFI_DMA)) {
+        WIFI_Tx_DMA_Off();
+        l5_tx_complete(wifi_tx_error);
     }
 }
 
-void HAL_UART_TxCpltCallback(UART_HandleTypeDef *hUart) {
-    UNUSED(hUart);
-}
-
-void HAL_UART_ErrorCallback(UART_HandleTypeDef *hUart) {
-    if (hUart->Instance == USART1) {
-        L5_UART1_ErrorCallback(hUart);
-    } else if (hUart->Instance == USART2) {
-        L5_UART2_ErrorCallback(hUart);
-    } else if (hUart->Instance == USART3) {
-        L5_UART3_ErrorCallback(hUart);
+void WIFI_UART_IRQHandler(void) {
+    if (LL_USART_IsActiveFlag_IDLE(WIFI_USART) && LL_USART_IsEnabledIT_IDLE(WIFI_USART)) {
+        LL_USART_ClearFlag_IDLE(WIFI_USART);
+        /* stop wifi rx dma */
+        CLEAR_BIT(WIFI_USART->CR3, USART_CR3_EIE);
+        WIFI_Rx_DMA_Off();
+        L5_rx_receive(wifi_ok);
     }
-}
-
-__weak void L5_UART1_RxCpltCallback(UART_HandleTypeDef *hUart) {
-    UNUSED(hUart);
-}
-
-__weak void L5_UART2_RxCpltCallback(UART_HandleTypeDef *hUart) {
-    UNUSED(hUart);
-}
-
-__weak void L5_UART3_RxCpltCallback(UART_HandleTypeDef *hUart) {
-    UNUSED(hUart);
-}
-
-__weak void L5_UART1_ErrorCallback(UART_HandleTypeDef *hUart) {
-    UNUSED(hUart);
-}
-
-__weak void L5_UART2_ErrorCallback(UART_HandleTypeDef *hUart) {
-    UNUSED(hUart);
-}
-
-__weak void L5_UART3_ErrorCallback(UART_HandleTypeDef *hUart) {
-    UNUSED(hUart);
 }

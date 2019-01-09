@@ -3,25 +3,42 @@
 //
 #include <lib_l5.h>
 #include <string.h>
+#include <stdio.h>
 
 #ifdef L5_USE_ESP8266
 
 #define wifi_log(f, ...) printf("[wifi] " f "\n", ##__VA_ARGS__)
 
 #define wifi_tx_timeout 1000
-#define wifi_rx_timeout 5000
+#define wifi_rx_timeout 3000
 #define tcp_server_ip   "192.168.1.17"
 #define tcp_server_port 8899
 
+
 void task_wifi(__unused void const *arg) {
+
+
     wifi_err_t err;
 
     /* init Wifi */
     if (wifi_ok != l5_wifi_init(wifi_tx_timeout, wifi_rx_timeout)) {
+        /* Maybe esp8266's baud rate is others */
         wifi_log("init error");
         Error_Handler();
     }
     wifi_log("init success");
+
+    uint32_t baudRate = 0;
+    if (wifi_ok != l5_wifi_get_baudrate(&baudRate)) {
+        wifi_log("get worker baud rate error");
+        Error_Handler();
+    }
+    wifi_log("baud rate is %lu", baudRate);
+
+    if (wifi_ok != l5_wifi_set_baudrate(WIFI_BAUD_RATE)) {
+        wifi_log("set worker baud rate error");
+        Error_Handler();
+    }
 
     /* query work mode, insure it's Station mode */
     if (l5_wifi_get_work_mode() != work_mode_station) {
@@ -62,30 +79,23 @@ void task_wifi(__unused void const *arg) {
 
     { /* query Wifi's information */
         wifi_sta_ip_t local_ip;
-        l5_wifi_get_sta_ip(&local_ip);
 
-        wifi_log("IP: %ld.%ld.%ld.%ld/%d",
-                (local_ip.ip >> 24) & 0xff,
-                (local_ip.ip >> 16) & 0xff,
-                (local_ip.ip >> 8) & 0xff,
-                local_ip.ip & 0xff,
-                local_ip.mask);
+        while (1) {
+            l5_wifi_get_sta_ip(&local_ip);
 
-        wifi_log("GW: %ld.%ld.%ld.%ld",
-                (local_ip.gateway >> 24) & 0xff,
-                (local_ip.gateway >> 16) & 0xff,
-                (local_ip.gateway >> 8) & 0xff,
-                local_ip.gateway & 0xff);
+            if (local_ip.ip > 0 ) {
+                break;
+            }
+            osDelay(500);
+        }
     }
 
-//    {
-//        err = l5_wifi_net_status();
-//        if (err != wifi_ok) {
-//            Error_Handler();
-//        }
-//    }
-
     {
+        net_status_t status = l5_wifi_net_status();
+        if (status == ns_tcp_udp_connected) {
+            l5_tcp_close();
+        }
+
         err = l5_tcp_dial(tcp_server_ip, tcp_server_port, 0);
         if (err != wifi_ok) {
             wifi_log("tcp dial to %s:%d err: %d", tcp_server_ip, tcp_server_port, err);
@@ -93,21 +103,33 @@ void task_wifi(__unused void const *arg) {
         }
         wifi_log("tcp dial to %s:%d success", tcp_server_ip, tcp_server_port);
 
-        err = l5_tcp_write("123456", sizeof("123456"));
-        if (err != wifi_ok) {
-            Error_Handler();
-        }
-
-        err = l5_tcp_close();
-        if (err != wifi_ok) {
-            Error_Handler();
-        }
-        wifi_log("tcp connection closed");
     }
+    {/* test read write */
+        err = l5_tcp_write("begin", (uint16_t) strlen("begin"));
+        if (err != wifi_ok) {
+            Error_Handler();
+        }
+        uint8_t *buf = NULL;
+        uint16_t size = 0;
 
+        uint8_t count = 0;
+        while (1) {
+            err = l5_tcp_read((void **) &buf, &size, osWaitForever);
+            if (err == wifi_timeout) {
+                continue;
+            }
+            if(++count == 0) {
+                count = 1;
+            }
+            buf[0] = count;
+            err = l5_tcp_write(buf, size);
+            if (err != wifi_ok) {
+                Error_Handler();
+            }
 
-
-    osDelay(osWaitForever);
+            vPortFree(buf);
+        }
+    }
 }
 
 #endif
