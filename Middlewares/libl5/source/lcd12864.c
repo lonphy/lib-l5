@@ -5,7 +5,7 @@
 #include "lib_l5.h"
 #include "lcd12864_font.h"
 
-#ifdef L5_USE_LCD12864
+#if defined(L5_USE_LCD12864)
 
 // TODO: gpio config extract
 

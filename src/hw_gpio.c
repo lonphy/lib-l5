@@ -3,7 +3,7 @@
 
 /* GPIO Ports Clock Enable */
 void hw_gpio_init(void) {
-#ifdef STM32F1
+#if defined(STM32F1)
     LL_APB2_GRP1_EnableClock(
             LL_APB2_GRP1_PERIPH_GPIOA |
             LL_APB2_GRP1_PERIPH_GPIOB |
@@ -11,7 +11,7 @@ void hw_gpio_init(void) {
             LL_APB2_GRP1_PERIPH_GPIOD
     );
 
-#elif STM32F4
+#elif defined(STM32F4)
     LL_AHB1_GRP1_EnableClock(
             LL_AHB1_GRP1_PERIPH_GPIOA |
             LL_AHB1_GRP1_PERIPH_GPIOB |

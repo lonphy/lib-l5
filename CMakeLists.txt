@@ -1,5 +1,6 @@
+include(CMakeForceCompiler)
 cmake_minimum_required(VERSION 3.12)
-project(rtos C ASM)
+project(lib-l5 C ASM)
 
 file(MAKE_DIRECTORY util)
 file(REMOVE Makefile)

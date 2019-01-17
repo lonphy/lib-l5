@@ -11,11 +11,15 @@ extern "C" {
 
 #include "main.h"
 
-#define L5_USE_ITM_CONSOLE
+#define L5_USE_USART_CONSOLE
+// #define L5_USE_ITM_CONSOLE
+
 #define L5_USE_LED
 #define L5_USE_ESP8266
 #define L5_USE_LCD1602
 #define L5_USE_LCD12864
+#define L5_USE_AT24CXX
+#define L5_USE_OLED
 
 /*------------ LCD1602 config -------------- */
 #ifdef L5_USE_LCD1602

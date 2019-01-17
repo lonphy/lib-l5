@@ -4,10 +4,10 @@
 
 
 #include "lib_l5.h"
+#include <stdio.h>
+#if defined(L5_USE_ITM_CONSOLE)
 
-#ifdef L5_USE_ITM_CONSOLE
-
-int __unused _write(int fd, const char *ptr, int len) {
+int _write(int fd, const char *ptr, int len) {
 
     if (fd > 2) {
         return -1;
@@ -19,4 +19,12 @@ int __unused _write(int fd, const char *ptr, int len) {
     return len;
 }
 
-#endif // L5_USE_ITM_CONSOLE
+#elif defined(L5_USE_USART_CONSOLE)
+extern void hw_log_write(const char *buf, unsigned short len);
+
+int _write(int fd, const char *ptr, int len) {
+    hw_log_write(ptr, (unsigned short) len);
+    return len;
+}
+
+#endif

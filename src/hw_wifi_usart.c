@@ -2,9 +2,10 @@
 // Created by lonphy on 2018/10/19.
 //
 
-#include "hw_uart.h"
+#include "hw_wifi_usart.h"
 #include <lib_l5.h>
 
+#if defined(L5_USE_ESP8266)
 #define WIFI_UART_IRQn           UART4_IRQn
 #define WIFI_UART_IRQHandler     UART4_IRQHandler
 
@@ -92,7 +93,7 @@ static inline void hw_uart_dma_init() {
     }
 }
 
-void hw_uart_init() {
+void hw_usart_init() {
     /* enable uart and it's DMA clock */
     LL_APB1_GRP1_EnableClock(LL_APB1_GRP1_PERIPH_UART4);
 
@@ -193,3 +194,5 @@ void WIFI_UART_IRQHandler(void) {
         L5_rx_receive(wifi_ok);
     }
 }
+
+#endif

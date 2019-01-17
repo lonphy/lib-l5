@@ -32,4 +32,8 @@
 #include "oled_ssd1306.h"
 #endif
 
+#ifdef L5_USE_AT24CXX
+#include "at24cxx.h"
+#endif
+
 #endif //__LIB_L5_H__

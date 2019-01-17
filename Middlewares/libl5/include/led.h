@@ -8,22 +8,22 @@
 
 #if defined(L5_USE_LED)
 
-#ifndef LED_GPIO
+#if !(\
+    (defined(LED_LED1_GPIO) && defined(LED_LED1_PIN)) || \
+    (defined(LED_LED2_GPIO) && defined(LED_LED2_PIN)) || \
+    (defined(LED_LED3_GPIO) && defined(LED_LED3_PIN))    \
+)
 #error (LIBL5 LED GPIO not configed)
 #endif
 
-#if !(defined(LED_LED1_PIN) || defined(LED_LED2_PIN) || defined(LED_LED3_PIN))
-#error (LIBL5 LED pin not configed)
-#endif
-
 typedef enum {
-#ifdef LED_LED1_PIN
+#if  defined(LED_LED1_PIN)
     Led1,
 #endif
-#ifdef LED_LED2_PIN
+#if defined(LED_LED2_PIN)
     Led2,
 #endif
-#ifdef LED_LED3_PIN
+#if defined(LED_LED3_PIN)
     Led3,
 #endif
     LedN

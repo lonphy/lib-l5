@@ -5,7 +5,7 @@
 #include <string.h>
 #include <stdio.h>
 
-#ifdef L5_USE_ESP8266
+#if defined(L5_USE_ESP8266)
 
 #define wifi_log(f, ...) printf("[wifi] " f "\n", ##__VA_ARGS__)
 

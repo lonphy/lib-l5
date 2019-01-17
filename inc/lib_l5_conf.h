@@ -12,8 +12,10 @@ extern "C" {
 #include "main.h"
 
 /* #define L5_USE_ITM_CONSOLE */
+#define L5_USE_USART_CONSOLE
 #define L5_USE_LED
-#define L5_USE_ESP8266
+#define L5_USE_AT24CXX
+/*#define L5_USE_ESP8266 */
 /* #define L5_USE_LCD1602 */
 /* #define L5_USE_LCD12864 */
 /* #define L5_USE_OLED */
@@ -61,11 +63,18 @@ extern "C" {
 
 /*------------ LED config -------------- */
 #ifdef L5_USE_LED
-#define LED_GPIO GPIOC
-#define LED_LED1_PIN LL_GPIO_PIN_13 // PC13
+#define LED_LED1_GPIO GPIOA
+#define LED_LED1_PIN  LL_GPIO_PIN_1 // PA1
+
+#define LED_LED2_GPIO GPIOC
+#define LED_LED2_PIN  LL_GPIO_PIN_13 // PC13
 
 #endif
 /*------------ LED config -------------- */
+
+#ifdef L5_USE_AT24CXX
+#define AT24CXX_ADDRESS 0xA0
+#endif
 
 #ifdef __cplusplus
 }

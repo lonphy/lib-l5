@@ -6,7 +6,7 @@
 #include "hw_i2c.h"
 #include "oled_ssd1306_font.h"
 
-#ifdef L5_USE_OLED
+#if defined(L5_USE_OLED)
 
 #define OLED_ADDRESS 0x78
 

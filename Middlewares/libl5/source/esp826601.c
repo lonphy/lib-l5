@@ -2,9 +2,9 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include "hw_uart.h"
+#include "hw_wifi_usart.h"
 
-#ifdef L5_USE_ESP8266
+#if defined(L5_USE_ESP8266)
 
 static inline const char *parse_ip(const char *str, uint32_t *dest);
 

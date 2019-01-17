@@ -5,7 +5,7 @@
  */
 #include <lib_l5.h>
 
-#ifdef L5_USE_OLED
+#if defined(L5_USE_OLED)
 
 void task_oled(__unused void const *arg) {
     printf("task_oled start\n");

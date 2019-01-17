@@ -4,7 +4,7 @@
 
 #include "lib_l5.h"
 
-#ifdef L5_USE_LCD1602
+#if defined(L5_USE_LCD1602)
 
 #define    __L5_LCD1602_WRITE_MODE()        HAL_GPIO_WritePin(LCD1602_CTL_GPIO, LCD1602_RW_PIN, GPIO_PIN_RESET)
 #define    __L5_LCD1602_READ_MODE()         HAL_GPIO_WritePin(LCD1602_CTL_GPIO, LCD1602_RW_PIN, GPIO_PIN_SET)

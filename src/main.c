@@ -1,7 +1,8 @@
 #include "main.h"
 #include <lib_l5.h>
 
-#include "hw_uart.h"
+#include "hw_log_uart.h"
+#include "hw_wifi_usart.h"
 #include "hw_crc.h"
 #include "hw_gpio.h"
 #include "hw_i2c.h"
@@ -15,6 +16,8 @@ void task_oled(void const *arg);
 
 void task_wifi(const void *arg);
 
+void task_led(const void *arg);
+void task_24c02(const void *arg);
 void ll_init(void);
 
 void system_clock_config(void);
@@ -36,12 +39,16 @@ int main(void) {
         system_clock_config();
         hw_gpio_init();
         /* hw_crc_init(); */
-        hw_uart_init();
+#if defined(L5_USE_ESP8266)
+        hw_usart_init();
+#endif
+#if defined(L5_USE_USART_CONSOLE)
+        hw_log_usart_init();
+#endif
 
-        //l5_led_init();
-        //l5_led_on(Led1);
-
-        /* hw_i2c_init(); */
+#if defined(L5_USE_AT24CXX)
+        hw_i2c_init();
+#endif
     }
     {
         /*
@@ -55,8 +62,20 @@ int main(void) {
             osThreadDef(oled, task_oled, osPriorityNormal, 0, 1024);
             osThreadCreate(osThread(oled), NULL);
          */
+#if defined(L5_USE_LED)
+        osThreadDef(led, task_led, osPriorityNormal, 1, 512);
+        osThreadCreate(osThread(led), NULL);
+#endif
+
+#if defined(L5_USE_ESP8266)
         osThreadDef(wifi, task_wifi, osPriorityNormal, 1, 4096);
         osThreadCreate(osThread(wifi), NULL);
+#endif
+
+#if defined(L5_USE_AT24CXX)
+        osThreadDef(at24cxx, task_24c02, osPriorityNormal, 1, 512);
+        osThreadCreate(osThread(at24cxx), NULL);
+#endif
     }
     osKernelStart();
     return 0;
@@ -64,7 +83,7 @@ int main(void) {
 
 
 void ll_init(void) {
-#ifdef STM32F1
+#if defined(STM32F1)
     LL_APB2_GRP1_EnableClock(LL_APB2_GRP1_PERIPH_AFIO);
 #endif
 
@@ -74,7 +93,7 @@ void ll_init(void) {
     L5_NVIC_SetPriority(PendSV_IRQn, 15);
     L5_NVIC_SetPriority(PendSV_IRQn, 15);
 
-#ifdef STM32F1
+#if defined(STM32F1)
     LL_GPIO_AF_Remap_SWJ_NOJTAG();
 #endif
 }
