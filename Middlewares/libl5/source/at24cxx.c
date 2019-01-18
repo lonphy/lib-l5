@@ -11,11 +11,11 @@
 #endif
 
 void l5_at24cxx_write(uint8_t mem_address, uint8_t dat) {
-    hw_i2c_write(AT24CXX_ADDRESS, mem_address, dat);
+    at24cxx_i2c_write(AT24CXX_I2C, AT24CXX_ADDRESS, mem_address, dat);
 }
 
 uint8_t l5_at24cxx_read(uint8_t mem_address) {
-    return hw_i2c_read(AT24CXX_ADDRESS, mem_address);
+    return at24cxx_i2c_read(AT24CXX_I2C, AT24CXX_ADDRESS, mem_address);
 }
 
 #endif

@@ -17,7 +17,9 @@ void task_oled(void const *arg);
 void task_wifi(const void *arg);
 
 void task_led(const void *arg);
+
 void task_24c02(const void *arg);
+
 void ll_init(void);
 
 void system_clock_config(void);
@@ -39,44 +41,39 @@ int main(void) {
         system_clock_config();
         hw_gpio_init();
         /* hw_crc_init(); */
-#if defined(L5_USE_ESP8266)
-        hw_usart_init();
-#endif
+
 #if defined(L5_USE_USART_CONSOLE)
         hw_log_usart_init();
 #endif
-
-#if defined(L5_USE_AT24CXX)
-        hw_i2c_init();
-#endif
     }
-    {
-        /*
-            osThreadDef(main, task_main, osPriorityNormal, 0, 1024);
-            osThreadCreate(osThread(main), NULL);
+    /*
+        osThreadDef(main, task_main, osPriorityNormal, 0, 1024);
+        osThreadCreate(osThread(main), NULL);
 
+        osThreadDef(parser, task_parser, osPriorityNormal, 1, 512);
+        osThreadCreate(osThread(parser), NULL);
+        */
+#if defined(L5_USE_OLED)
+    osThreadDef(oled, task_oled, osPriorityNormal, 0, 1024);
+    osThreadCreate(osThread(oled), NULL);
+#endif
 
-            osThreadDef(parser, task_parser, osPriorityNormal, 1, 512);
-            osThreadCreate(osThread(parser), NULL);
-
-            osThreadDef(oled, task_oled, osPriorityNormal, 0, 1024);
-            osThreadCreate(osThread(oled), NULL);
-         */
 #if defined(L5_USE_LED)
-        osThreadDef(led, task_led, osPriorityNormal, 1, 512);
-        osThreadCreate(osThread(led), NULL);
+    osThreadDef(led, task_led, osPriorityNormal, 1, 512);
+    osThreadCreate(osThread(led), NULL);
 #endif
 
 #if defined(L5_USE_ESP8266)
-        osThreadDef(wifi, task_wifi, osPriorityNormal, 1, 4096);
-        osThreadCreate(osThread(wifi), NULL);
+    hw_wifi_usart_init();
+    osThreadDef(wifi, task_wifi, osPriorityNormal, 1, 4096);
+    osThreadCreate(osThread(wifi), NULL);
 #endif
 
 #if defined(L5_USE_AT24CXX)
-        osThreadDef(at24cxx, task_24c02, osPriorityNormal, 1, 512);
-        osThreadCreate(osThread(at24cxx), NULL);
+    osThreadDef(at24cxx, task_24c02, osPriorityNormal, 1, 512);
+    osThreadCreate(osThread(at24cxx), NULL);
 #endif
-    }
+
     osKernelStart();
     return 0;
 }

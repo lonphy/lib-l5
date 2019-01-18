@@ -5,6 +5,8 @@
 #ifndef RTOS_I2C_H
 #define RTOS_I2C_H
 
-void hw_i2c_init();
+#include <mcu.h>
+
+void hw_i2c_init(I2C_TypeDef *i2c, uint8_t addr1);
 
 #endif //RTOS_I2C_H

@@ -15,13 +15,13 @@ extern "C" {
 #define L5_USE_USART_CONSOLE
 #define L5_USE_LED
 #define L5_USE_AT24CXX
-/*#define L5_USE_ESP8266 */
+#define L5_USE_ESP8266
 /* #define L5_USE_LCD1602 */
 /* #define L5_USE_LCD12864 */
-/* #define L5_USE_OLED */
+#define L5_USE_OLED
 
 /*------------ LCD1602 config -------------- */
-#ifdef L5_USE_LCD1602
+#if defined(L5_USE_LCD1602)
 #define LCD1602_DAT_GPIO GPIOB
 #define LCD1602_CTL_GPIO GPIOB
 
@@ -33,7 +33,7 @@ extern "C" {
 #endif
 /*------------ LCD1602 config -------------- */
 /*------------ ESP8266 config -------------- */
-#ifdef L5_USE_ESP8266
+#if defined(L5_USE_ESP8266)
 #define WIFI_USART        UART4
 #define WIFI_BAUD_RATE    115200
 #define WIFI_WORK_BAUD_RATE 2250000 /* worker run baud rate */
@@ -48,7 +48,7 @@ extern "C" {
 /*------------ ESP8266 config -------------- */
 
 /*------------ LCD12864 config -------------- */
-#ifdef L5_USE_LCD12864
+#if defined(L5_USE_LCD12864)
 #define LCD12864_RW_PIN      GPIO_PIN_0  // PB0
 #define LCD12864_RS_PIN      GPIO_PIN_1  // PB1
 #define LCD12864_RD_PIN      GPIO_PIN_2  // PB2
@@ -62,7 +62,7 @@ extern "C" {
 /*------------ LCD12864 config -------------- */
 
 /*------------ LED config -------------- */
-#ifdef L5_USE_LED
+#if defined(L5_USE_LED)
 #define LED_LED1_GPIO GPIOA
 #define LED_LED1_PIN  LL_GPIO_PIN_1 // PA1
 
@@ -72,8 +72,16 @@ extern "C" {
 #endif
 /*------------ LED config -------------- */
 
-#ifdef L5_USE_AT24CXX
+#if defined(L5_USE_AT24CXX)
+// SCL->PB6, SDA->PB7
+#define AT24CXX_I2C     I2C1
 #define AT24CXX_ADDRESS 0xA0
+#endif
+
+#if defined(L5_USE_OLED)
+// SCL->PB10, SDA->PB11
+#define OLED_I2C        I2C2
+#define OLED_ADDRESS    0x78
 #endif
 
 #ifdef __cplusplus

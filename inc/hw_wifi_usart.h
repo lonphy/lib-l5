@@ -8,7 +8,7 @@
 #include "mcu.h"
 #include "main.h"
 
-void hw_usart_init();
+void hw_wifi_usart_init();
 
 void hw_usart_start_dma_rx(void * buf, uint32_t len);
 void hw_usart_start_dma_tx(void * buf, uint32_t len);

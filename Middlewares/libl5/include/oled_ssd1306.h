@@ -16,6 +16,8 @@ typedef enum {
     FONT_8x16
 } oled_font_t;
 
+extern void oled_i2c_write(I2C_TypeDef *i2c, uint8_t dev_address, uint8_t mem_address, uint8_t dat);
+
 void l5_oled_init(void);
 
 void OLED_SetPos(uint8_t x, uint8_t y);

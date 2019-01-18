@@ -4,11 +4,13 @@
  * @date 2018-11-10
  */
 #include <lib_l5.h>
+#include <stdio.h>
+#include "hw_i2c.h"
 
 #if defined(L5_USE_OLED)
 
-void task_oled(__unused void const *arg) {
-    printf("task_oled start\n");
+void task_oled(void const *arg) {
+    hw_i2c_init(OLED_I2C, OLED_ADDRESS);
 
     l5_oled_init();
     l5_oled_clear_screen();

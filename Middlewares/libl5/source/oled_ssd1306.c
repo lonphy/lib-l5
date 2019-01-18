@@ -3,34 +3,21 @@
 //
 
 #include "lib_l5.h"
-#include "hw_i2c.h"
 #include "oled_ssd1306_font.h"
 
 #if defined(L5_USE_OLED)
 
-#define OLED_ADDRESS 0x78
-
-static inline void i2c_write(uint8_t address, uint8_t data) {
-    HAL_I2C_Mem_Write(&hI2C1, OLED_ADDRESS, address, I2C_MEMADD_SIZE_8BIT, &data, 1, 0xffff);
-}
-
-static inline void write_cmd(uint8_t I2C_Command) {
-    i2c_write(0x00, I2C_Command);
-}
-
-static inline void write_data(uint8_t I2C_Data) {
-    i2c_write(0x40, I2C_Data);
-}
+#define write_cmd(cmd) oled_i2c_write(OLED_I2C, OLED_ADDRESS, 0x00, (cmd))
+#define write_dat(dat) oled_i2c_write(OLED_I2C, OLED_ADDRESS, 0x40, (dat))
 
 void l5_oled_init(void) {
-    HAL_Delay(2000);
+    osDelay(100);
 
     write_cmd(0xAE); /* display off */
     write_cmd(0x20); /* Set Memory Addressing Mode */
-    write_cmd(
-            0x10);    //00,Horizontal Addressing Mode;01,Vertical Addressing Mode;10,Page Addressing Mode (RESET);11,Invalid
-    write_cmd(0xb0);    //Set Page Start Address for Page Addressing Mode,0-7
-    write_cmd(0xc8);    //Set COM Output Scan Direction
+    write_cmd(0x10); //00,Horizontal Addressing Mode;01,Vertical Addressing Mode;10,Page Addressing Mode (RESET);11,Invalid
+    write_cmd(0xb0); //Set Page Start Address for Page Addressing Mode,0-7
+    write_cmd(0xc8); //Set COM Output Scan Direction
     write_cmd(0x00); //---set low column address
     write_cmd(0x10); //---set high column address
     write_cmd(0x40); //--set start line address
@@ -69,7 +56,7 @@ void OLED_Fill(uint8_t fill_Data) {
         write_cmd(0x00);        //low column start address
         write_cmd(0x10);        //high column start address
         for (n = 0; n < 128; n++) {
-            write_data(fill_Data);
+            write_dat(fill_Data);
         }
     }
 }
@@ -102,7 +89,7 @@ void l5_oled_show_string(uint8_t x, uint8_t y, char ch[], oled_font_t font) {
                 }
                 OLED_SetPos(x, y);
                 for (i = 0; i < 6; i++) {
-                    write_data(F6x8[c * 6 + i]);
+                    write_dat(F6x8[c * 6 + i]);
                 }
                 x += 6;
                 j++;
@@ -118,11 +105,11 @@ void l5_oled_show_string(uint8_t x, uint8_t y, char ch[], oled_font_t font) {
                 }
                 OLED_SetPos(x, y);
                 for (i = 0; i < 8; i++) {
-                    write_data(F8X16[c * 16 + i]);
+                    write_dat(F8X16[c * 16 + i]);
                 }
                 OLED_SetPos(x, y + (uint8_t)1);
                 for (i = 0; i < 8; i++) {
-                    write_data(F8X16[c * 16 + i + 8]);
+                    write_dat(F8X16[c * 16 + i + 8]);
                 }
                 x += 8;
                 j++;

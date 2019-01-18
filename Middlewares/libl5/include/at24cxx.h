@@ -17,7 +17,7 @@ extern "C" {
  * @param mem_address - access address for AT24CXX
  * @param dat
  */
-extern void hw_i2c_write(uint8_t dev_address, uint8_t mem_address, uint8_t dat);
+extern void at24cxx_i2c_write(I2C_TypeDef *i2c, uint8_t dev_address, uint8_t mem_address, uint8_t dat);
 
 /**
  * Read one byte from specify address
@@ -26,7 +26,7 @@ extern void hw_i2c_write(uint8_t dev_address, uint8_t mem_address, uint8_t dat);
  * @param mem_address - access address for AT24CXX
  * @param dat
  */
-extern uint8_t hw_i2c_read(uint8_t dev_address, uint8_t mem_address);
+extern uint8_t at24cxx_i2c_read(I2C_TypeDef *i2c, uint8_t dev_address, uint8_t mem_address);
 
 void l5_at24cxx_write(uint8_t mem_address, uint8_t dat);
 uint8_t l5_at24cxx_read(uint8_t mem_address);

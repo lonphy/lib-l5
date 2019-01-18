@@ -93,7 +93,7 @@ static inline void hw_uart_dma_init() {
     }
 }
 
-void hw_usart_init() {
+void hw_wifi_usart_init() {
     /* enable uart and it's DMA clock */
     LL_APB1_GRP1_EnableClock(LL_APB1_GRP1_PERIPH_UART4);
 

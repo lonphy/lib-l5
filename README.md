@@ -17,7 +17,7 @@ set `Preferences`->`Build,Execution,Deployment`->`CMake`->`CMake Options` to:
 
 - STM32F103RCTx
     - esp8266       -> uart4 with Rx/Tx dma
-    - oled(ssd1306) -> no test
+    - oled(ssd1306) -> I2C2 with block mode
     - at24c02       -> I2C1 with block mode
     - led           -> driven directly by GPIO
 
