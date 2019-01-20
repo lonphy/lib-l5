@@ -26,8 +26,8 @@ list(APPEND inc_dir ${LIB_L5}/include)
 
 file(GLOB_RECURSE LIB_L5_INC ${LIB_L5}/include/*.h)
 file(GLOB_RECURSE LIB_L5_SRC ${LIB_L5}/source/*.c)
-
-list(APPEND src_files ${LIB_L5_SRC} ${LIB_L5_INC})
+file(GLOB_RECURSE LIB_L5_DRIVER ${LIB_L5}/driver/*.h)
+list(APPEND src_files ${LIB_L5_SRC} ${LIB_L5_INC} ${LIB_L5_DRIVER})
 
 # ============= 用户代码区域 =====================
 
@@ -150,7 +150,7 @@ set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-Map=${PROJECT_SOURCE_
 set(ELF_FILE ${PROJECT_NAME}_${DEVICE_ID}.elf)
 set(BIN_FILE ${PROJECT_SOURCE_DIR}/build/${PROJECT_NAME}_${DEVICE_ID}.bin)
 
-include_directories(${USER_INC} ${inc_dir})
+include_directories(${USER_INC} ${inc_dir} ${LIB_L5}/driver)
 
 add_executable(${ELF_FILE} ${SOURCE_FILES})
 

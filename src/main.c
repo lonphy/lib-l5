@@ -6,7 +6,7 @@
 #include "hw_crc.h"
 #include "hw_gpio.h"
 #include "hw_i2c.h"
-
+#include "hw_spi.h"
 
 void task_lcd12864(void const *arg);
 
@@ -19,6 +19,7 @@ void task_wifi(const void *arg);
 void task_led(const void *arg);
 
 void task_24c02(const void *arg);
+void task_w25q16(const void *arg);
 
 void ll_init(void);
 
@@ -41,6 +42,7 @@ int main(void) {
         system_clock_config();
         hw_gpio_init();
         /* hw_crc_init(); */
+        hw_spi_init();
 
 #if defined(L5_USE_USART_CONSOLE)
         hw_log_usart_init();
@@ -73,6 +75,8 @@ int main(void) {
     osThreadDef(at24cxx, task_24c02, osPriorityNormal, 1, 512);
     osThreadCreate(osThread(at24cxx), NULL);
 #endif
+    osThreadDef(w25q16, task_w25q16, osPriorityNormal, 1, 512);
+    osThreadCreate(osThread(w25q16), NULL);
 
     osKernelStart();
     return 0;

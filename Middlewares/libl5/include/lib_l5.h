@@ -36,4 +36,8 @@
 #include "at24cxx.h"
 #endif
 
+#ifdef L5_USE_W25QXX
+#include "w25qxx.h"
+#endif
+
 #endif //__LIB_L5_H__

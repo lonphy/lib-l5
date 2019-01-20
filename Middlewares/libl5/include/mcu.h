@@ -20,6 +20,7 @@
 #include <stm32f1xx_ll_pwr.h>
 #include <stm32f1xx_ll_i2c.h>
 #include <stm32f1xx_ll_crc.h>
+#include <stm32f1xx_ll_spi.h>
 
 #elif defined(STM32F4)
 
