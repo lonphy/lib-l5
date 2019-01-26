@@ -19,6 +19,7 @@ void task_wifi(const void *arg);
 void task_led(const void *arg);
 
 void task_24c02(const void *arg);
+
 void task_w25q16(const void *arg);
 
 void ll_init(void);
@@ -61,19 +62,25 @@ int main(void) {
 #endif
 
 #if defined(L5_USE_LED)
-    osThreadDef(led, task_led, osPriorityNormal, 1, 512);
-    osThreadCreate(osThread(led), NULL);
+    {
+        osThreadDef(led, task_led, osPriorityNormal, 1, 512);
+        osThreadCreate(osThread(led), NULL);
+    }
 #endif
 
 #if defined(L5_USE_ESP8266)
-    hw_wifi_usart_init();
-    osThreadDef(wifi, task_wifi, osPriorityNormal, 1, 4096);
-    osThreadCreate(osThread(wifi), NULL);
+    {
+        hw_wifi_usart_init();
+        osThreadDef(wifi, task_wifi, osPriorityNormal, 1, 4096);
+        osThreadCreate(osThread(wifi), NULL);
+    }
 #endif
 
 #if defined(L5_USE_AT24CXX)
-    osThreadDef(at24cxx, task_24c02, osPriorityNormal, 1, 512);
-    osThreadCreate(osThread(at24cxx), NULL);
+    {
+        osThreadDef(at24cxx, task_24c02, osPriorityNormal, 1, 512);
+        osThreadCreate(osThread(at24cxx), NULL);
+    }
 #endif
     osThreadDef(w25q16, task_w25q16, osPriorityNormal, 1, 512);
     osThreadCreate(osThread(w25q16), NULL);

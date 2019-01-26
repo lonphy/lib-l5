@@ -64,6 +64,7 @@ extern "C" {
 
 /*------------ LED config -------------- */
 #if defined(L5_USE_LED)
+
 #define LED_LED1_GPIO GPIOA
 #define LED_LED1_PIN  LL_GPIO_PIN_1 // PA1
 

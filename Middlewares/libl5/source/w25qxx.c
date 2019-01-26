@@ -111,7 +111,7 @@ void l5_w25qxx_write_page(uint32_t page, uint8_t *buff, uint16_t size) {
 }
 
 void l5_w25qxx_page_write(uint32_t address, uint8_t *buff, uint16_t size) {
-    uint8_t midtemp = 0;
+    uint8_t temp = 0;
     uint8_t page_offset     = (uint8_t) (address % W25QXX_PAGE_SIZE); /* 计算将要写入的页偏移量 */
     uint8_t page_space_free = (uint8_t) (W25QXX_PAGE_SIZE - page_offset); /* 计算目标页还有多少字节可写入 */
     uint8_t page_need       = (uint8_t) (size / W25QXX_PAGE_SIZE); /* 计算 数据 需要写几页 */
@@ -141,18 +141,18 @@ void l5_w25qxx_page_write(uint32_t address, uint8_t *buff, uint16_t size) {
 
         /* 写入的数据， 超过当前页剩余空间 */
         if (page_more > page_space_free) {
-            midtemp = page_more - page_space_free; /* 计算当前页需要写入多少数据 */
+            temp = page_more - page_space_free; /* 计算当前页需要写入多少数据 */
             l5_w25qxx_write_page(address, buff, page_space_free); /* Fixme: 页写入是否需要边界对齐 */
             address += page_space_free;
             buff += page_space_free;
-            l5_w25qxx_write_page(address, buff, midtemp);
+            l5_w25qxx_write_page(address, buff, temp);
         } else {
             l5_w25qxx_write_page(address, buff, size);
         }
         return;
     }
 
-    //ByteCount > W25QXX_PAGE_SIZE（一页总的字节数）
+    /* 写入的数据量超过一页 */
     size -= page_space_free;
     page_need = (uint8_t) (size / W25QXX_PAGE_SIZE);
     page_more = (uint8_t) (size % W25QXX_PAGE_SIZE);
@@ -160,6 +160,7 @@ void l5_w25qxx_page_write(uint32_t address, uint8_t *buff, uint16_t size) {
     l5_w25qxx_write_page(address, buff, page_space_free);
     address += page_space_free;
     buff += page_space_free;
+
     while (page_need--) {
         l5_w25qxx_write_page(address, buff, W25QXX_PAGE_SIZE);
         address += W25QXX_PAGE_SIZE;
