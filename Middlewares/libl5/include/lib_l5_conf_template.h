@@ -9,8 +9,6 @@
 extern "C" {
 #endif
 
-#include "main.h"
-
 #define L5_USE_USART_CONSOLE
 // #define L5_USE_ITM_CONSOLE
 

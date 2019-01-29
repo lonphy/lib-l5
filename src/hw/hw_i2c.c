@@ -2,8 +2,7 @@
 // Created by lonphy on 2018/11/10.
 //
 
-#include <mcu.h>
-#include "hw_i2c.h"
+#include "hw.h"
 
 static inline void hw_send_slave_address(I2C_TypeDef *i2c, uint8_t address);
 

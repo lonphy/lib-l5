@@ -2,8 +2,7 @@
 // Created by lonphy on 2019/1/18.
 //
 
-#include <lib_l5.h>
-#include "hw_spi.h"
+#include "hw.h"
 
 void hw_spi_init(void) {
     /* Peripheral clock enable */

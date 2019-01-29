@@ -2,16 +2,14 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include "hw_wifi_usart.h"
 
 #if defined(L5_USE_ESP8266)
 
 static inline const char *parse_ip(const char *str, uint32_t *dest);
 
-static inline void  uart_transmit(const char *buf, uint16_t buf_size);
+static inline void uart_transmit(const char *buf, uint16_t buf_size);
 
 static inline void esp8266_exec(const char *cmd, uint16_t cmd_len, const char *rsp_suffix);
-
 
 static inline void esp8266_query(const char *cmd, uint16_t cmdSize, uint8_t *buf, uint16_t buf_size);
 
@@ -21,18 +19,13 @@ static inline void alloc_command_response(size_t size, const void *dat);
 
 static void response_parser_task(const void *arg);
 
-/* ---------- config check ----------------------*/
-#ifndef WIFI_USART
-#error WIFI_USART not configed
-#endif
-
 static wifi_t esp8266;
 static const char simple_rsp_ok[] = "OK\r\n";
 
 #define lock()   osMutexWait(esp8266.lock, osWaitForever)
 #define unlock() osMutexRelease(esp8266.lock)
 
-void l5_tx_complete(wifi_err_t err) {
+void l5_wifi_tx_complete(wifi_err_t err) {
     esp8266.err = err;
     osSemaphoreRelease(esp8266.tc_sem);
 }
@@ -78,7 +71,7 @@ void response_parser_task(__unused const void *arg) {
                     need_dat_size -= size;
                     break;
                 } else {
-                    memcpy(dat->raw+(dat->rawSize - need_dat_size), pProcessing, need_dat_size);
+                    memcpy(dat->raw + (dat->rawSize - need_dat_size), pProcessing, need_dat_size);
                     dat->raw[dat->rawSize] = 0;
                     osMessagePut(esp8266.dat_queue, (uint32_t) dat, 10);
                     pProcessing += need_dat_size;
@@ -94,7 +87,7 @@ void response_parser_task(__unused const void *arg) {
                 dat->rawSize = (uint16_t) strtoul(p + 5, &p, 10);
                 p++;
                 dat->raw = pvPortMalloc(dat->rawSize + 1);
-                current_frame_size = size - (p-buf);
+                current_frame_size = size - (p - buf);
 
                 // check frame data is enough
                 if (current_frame_size >= dat->rawSize) {
@@ -210,7 +203,7 @@ void response_parser_task(__unused const void *arg) {
                 /* for AT+CIPCLOSE\r\n */
                 p = strstr(pProcessing, "CLOSED\r\n\r\n");
                 if (p && p == pProcessing) {
-                    p = strstr(p+10, "\n");
+                    p = strstr(p + 10, "\n");
                     size1 = (uint16_t) (p + 1 - pProcessing);
                     alloc_command_response(size1, pProcessing);
                     pProcessing += size1;
@@ -250,20 +243,21 @@ void response_parser_task(__unused const void *arg) {
     }
 }
 
-wifi_err_t l5_wifi_init(uint16_t tx_timeout, uint16_t rx_timeout) {
-    osMutexDef(rw_lock); /* for write */
+wifi_err_t l5_wifi_init(wifi_config_t *opt) {
+    osMutexDef(rw_lock); /* Lock for write */
     osSemaphoreDef(parse_sem);
     osSemaphoreDef(tc_sem);
     osSemaphoreDef(rx_sem);
     osMessageQDef(data_queue, 3, net_dat_t*);
     osThreadDef(rsp_parser, response_parser_task, osThreadGetPriority(osThreadGetId()), 1, 1024);
 
-    esp8266.tx_timeout = tx_timeout;
-    esp8266.rx_timeout = rx_timeout;
+    /* In order to store the wifi configuration, we have to alloc a block of memory,
+       because the opt may be allocated in the stack. */
+    esp8266.opt = pvPortMalloc(sizeof(wifi_config_t));
+    memcpy(esp8266.opt, opt, sizeof(wifi_config_t));
 
     esp8266.current_buf_idx = 1;
 
-    // ll_usart_init();
     esp8266.lock = osMutexCreate(osMutex(rw_lock));
 
     {
@@ -288,7 +282,7 @@ wifi_err_t l5_wifi_init(uint16_t tx_timeout, uint16_t rx_timeout) {
         return wifi_error;
     }
 
-    hw_usart_start_dma_rx(esp8266.rx_buf[1], dma_rx_buf_size);
+    esp8266.opt->start_rx_func(esp8266.rx_buf[1], dma_rx_buf_size);
 
     esp8266_exec("AT\r\n", 4, simple_rsp_ok);
     /* close echo */
@@ -311,7 +305,9 @@ wifi_err_t l5_wifi_set_baudrate(uint32_t baud) {
     char *buf = pvPortMalloc(32);
     int len = sprintf(buf, "AT+UART_CUR=%lu,8,1,0,0", baud);
 
+    esp8266.opt->rx_timeout <<=1;
     esp8266_exec(buf, (uint16_t) len, simple_rsp_ok);
+    esp8266.opt->rx_timeout >>=1;
     if (esp8266.err != wifi_ok) {
         vPortFree(buf);
         return esp8266.err;
@@ -331,7 +327,7 @@ wifi_err_t l5_wifi_get_baudrate(uint32_t *baud) {
     }
     char *p = strstr(buf, "+UART_CUR:");
     if (p) {
-        *baud = (uint32_t) strtol(p+10, NULL, 10);
+        *baud = (uint32_t) strtol(p + 10, NULL, 10);
     }
     vPortFree(buf);
     return esp8266.err;
@@ -589,13 +585,13 @@ wifi_err_t l5_wifi_get_hotspot(wifi_hotspot_t *opt) {
 wifi_err_t l5_wifi_set_hotspot(wifi_hotspot_t *opt) {
     char *cmd_buf = pvPortMalloc(128);
     int real_cmd_len = sprintf(cmd_buf,
-            "AT+CWSAP=\"%s\",\"%s\",%d,%d,%d,%d\r\n",
-            opt->ssid,
-            opt->pwd,
-            opt->channel,
-            opt->enc,
-            opt->max_conn,
-            opt->ssid_hidden);
+                               "AT+CWSAP=\"%s\",\"%s\",%d,%d,%d,%d\r\n",
+                               opt->ssid,
+                               opt->pwd,
+                               opt->channel,
+                               opt->enc,
+                               opt->max_conn,
+                               opt->ssid_hidden);
     esp8266_exec(cmd_buf, (uint16_t) real_cmd_len, simple_rsp_ok);
     vPortFree(cmd_buf);
     return esp8266.err;
@@ -671,6 +667,24 @@ wifi_err_t l5_tcp_close(void) {
     return esp8266.err;
 }
 
+void L5_wifi_rx_receive(wifi_err_t err) {
+    if (esp8266.response_task == NULL) {
+        return;
+    }
+    esp8266.err = err;
+    uint8_t idx = esp8266.current_buf_idx;
+    esp8266.ready_buf_idx = idx;
+    /* handle previous buf len */
+    esp8266.rx_buf_size[idx] = (uint16_t) (dma_rx_buf_size - esp8266.opt->get_rx_length_func()); /* get data error*/
+    esp8266.rx_buf[idx][esp8266.rx_buf_size[idx]] = 0;
+
+    idx = esp8266.current_buf_idx = (uint8_t) ((idx + 1) % 2);
+    esp8266.rx_buf_size[idx] = 0;
+
+    esp8266.opt->start_rx_func(esp8266.rx_buf[esp8266.current_buf_idx], dma_rx_buf_size);
+
+    osSemaphoreRelease(esp8266.rx_sem);
+}
 
 /* -------------------- private ---------------------- */
 
@@ -713,7 +727,7 @@ static inline void esp8266_write_dat(const void *buf, uint16_t buf_len) {
     esp8266.state = command_rx;
 
     /* step2. wait rx done */
-    if (osSemaphoreWait(esp8266.parse_sem, esp8266.rx_timeout) != osOK) {
+    if (osSemaphoreWait(esp8266.parse_sem, esp8266.opt->rx_timeout) != osOK) {
         esp8266.err = wifi_timeout;
         goto END;
     }
@@ -739,7 +753,7 @@ static inline void esp8266_write_dat(const void *buf, uint16_t buf_len) {
     }
 
     /* step5. check send result */
-    if (osSemaphoreWait(esp8266.parse_sem, esp8266.rx_timeout) != osOK) {
+    if (osSemaphoreWait(esp8266.parse_sem, esp8266.opt->rx_timeout) != osOK) {
         esp8266.err = wifi_timeout;
         goto END;
     }
@@ -761,7 +775,7 @@ static inline void esp8266_exec(const char *cmd, uint16_t cmd_len, const char *r
     esp8266.state = command_rx;
 
     /* step2. wait rx done */
-    if (osSemaphoreWait(esp8266.parse_sem, esp8266.rx_timeout) != osOK) {
+    if (osSemaphoreWait(esp8266.parse_sem, esp8266.opt->rx_timeout) != osOK) {
         esp8266.err = wifi_timeout;
         goto END;
     }
@@ -792,7 +806,7 @@ static inline void esp8266_query(const char *cmd, uint16_t cmdSize, uint8_t *buf
 
     /* step2. wait rx done */
     /* TODO: if response is more than once, how do it? */
-    if (osSemaphoreWait(esp8266.parse_sem, esp8266.rx_timeout) != osOK) {
+    if (osSemaphoreWait(esp8266.parse_sem, esp8266.opt->rx_timeout) != osOK) {
         esp8266.err = wifi_timeout;
         goto END;
     }
@@ -808,34 +822,15 @@ static inline void esp8266_query(const char *cmd, uint16_t cmdSize, uint8_t *buf
     unlock();
 }
 
-void L5_rx_receive(wifi_err_t err) {
-    if (esp8266.response_task == NULL) {
-        return;
-    }
-    esp8266.err = err;
-    uint8_t idx = esp8266.current_buf_idx;
-    esp8266.ready_buf_idx = idx;
-    /* handle previous buf len */
-    esp8266.rx_buf_size[idx] = (uint16_t) (dma_rx_buf_size - hw_usart_get_dma_rx_length()); /* get data error*/
-    esp8266.rx_buf[idx][esp8266.rx_buf_size[idx]] = 0;
-
-    idx = esp8266.current_buf_idx = (uint8_t) ((idx + 1) % 2);
-    esp8266.rx_buf_size[idx] = 0;
-
-    hw_usart_start_dma_rx(esp8266.rx_buf[esp8266.current_buf_idx], dma_rx_buf_size);
-
-
-    osSemaphoreRelease(esp8266.rx_sem);
-}
-
-static inline void  uart_transmit(const char *buf, uint16_t buf_size) {
+static inline void uart_transmit(const char *buf, uint16_t buf_size) {
     esp8266.state = command_tx;
     esp8266.command = buf;
     esp8266.err = wifi_ok;
 
-    hw_usart_start_dma_tx((void *) buf, buf_size);
-    if (osSemaphoreWait(esp8266.tc_sem, esp8266.tx_timeout) != osOK) {
+    esp8266.opt->start_tx_func((void *) buf, buf_size);
+    if (osSemaphoreWait(esp8266.tc_sem, esp8266.opt->tx_timeout) != osOK) {
         esp8266.err = wifi_timeout;
     }
 }
+
 #endif // defined(L5_USE_ESP8266)

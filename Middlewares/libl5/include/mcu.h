@@ -21,6 +21,9 @@
 #include <stm32f1xx_ll_i2c.h>
 #include <stm32f1xx_ll_crc.h>
 #include <stm32f1xx_ll_spi.h>
+#include <stm32f1xx_ll_adc.h>
+#include <stm32f1xx_ll_dac.h>
+#include <stm32f1xx_ll_tim.h>
 
 #elif defined(STM32F4)
 
@@ -57,8 +60,9 @@
                                                                  0 bit  for subpriority */
 #endif
 
-#define L5_NVIC_SetPriority(irq, priority) do{              \
+#define L5_NVIC_EnableIRQ(irq, priority) do{              \
     NVIC_SetPriority(irq, NVIC_EncodePriority(NVIC_GetPriorityGrouping(), priority,0)); \
+    NVIC_EnableIRQ(irq); \
 }while(0)
 
 #endif //__LIB_L5_MCU_H__

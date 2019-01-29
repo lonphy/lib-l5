@@ -3,9 +3,9 @@
  * @author lonphy
  * @date 2018-11-10
  */
-#include <lib_l5.h>
+
 #include <stdio.h>
-#include "hw_i2c.h"
+#include "hw.h"
 
 #if defined(L5_USE_OLED)
 

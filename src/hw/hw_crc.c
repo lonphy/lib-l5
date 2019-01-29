@@ -1,4 +1,4 @@
-#include "hw_crc.h"
+#include "hw.h"
 
 
 /* CRC init function */

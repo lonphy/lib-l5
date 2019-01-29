@@ -4,24 +4,24 @@
 #include <lib_l5.h>
 #include <string.h>
 #include <stdio.h>
+#include "hw.h"
 
-#if defined(L5_USE_ESP8266)
+#if defined(L5_WIFI_DEMO)
 
 #define wifi_log(f, ...) printf("[wifi] " f "\n", ##__VA_ARGS__)
 
-#define wifi_tx_timeout 1000
-#define wifi_rx_timeout 3000
-#define tcp_server_ip   "192.168.1.17"
-#define tcp_server_port 8899
-
-
 void task_wifi(__unused void const *arg) {
 
-
     wifi_err_t err;
-
+    wifi_config_t opt = {
+            .rx_timeout = WIFI_RX_TIMEOUT,
+            .tx_timeout = WIFI_TX_TIMEOUT,
+            .start_rx_func = hw_usart_start_dma_rx,
+            .start_tx_func = hw_usart_start_dma_tx,
+            .get_rx_length_func = hw_usart_get_dma_rx_length,
+    };
     /* init Wifi */
-    if (wifi_ok != l5_wifi_init(wifi_tx_timeout, wifi_rx_timeout)) {
+    if (wifi_ok != l5_wifi_init(&opt)) {
         /* Maybe esp8266's baud rate is others */
         wifi_log("init error");
         Error_Handler();
@@ -34,11 +34,6 @@ void task_wifi(__unused void const *arg) {
         Error_Handler();
     }
     wifi_log("baud rate is %lu", baudRate);
-
-    if (wifi_ok != l5_wifi_set_baudrate(WIFI_BAUD_RATE)) {
-        wifi_log("set worker baud rate error");
-        Error_Handler();
-    }
 
     /* query work mode, insure it's Station mode */
     if (l5_wifi_get_work_mode() != work_mode_station) {
@@ -96,12 +91,12 @@ void task_wifi(__unused void const *arg) {
             l5_tcp_close();
         }
 
-        err = l5_tcp_dial(tcp_server_ip, tcp_server_port, 0);
+        err = l5_tcp_dial(TCP_SERVER_IP, TCP_SERVER_PORT, 0);
         if (err != wifi_ok) {
-            wifi_log("tcp dial to %s:%d err: %d", tcp_server_ip, tcp_server_port, err);
+            wifi_log("tcp dial to %s:%d err: %d", TCP_SERVER_IP, TCP_SERVER_PORT, err);
             Error_Handler();
         }
-        wifi_log("tcp dial to %s:%d success", tcp_server_ip, tcp_server_port);
+        wifi_log("tcp dial to %s:%d success", TCP_SERVER_IP, TCP_SERVER_PORT);
 
     }
     {/* test read write */
@@ -121,13 +116,12 @@ void task_wifi(__unused void const *arg) {
             if(++count == 0) {
                 count = 1;
             }
-            buf[0] = count;
-            err = l5_tcp_write(buf, size);
+            vPortFree(buf);
+
+            err = l5_tcp_write("next", 4);
             if (err != wifi_ok) {
                 Error_Handler();
             }
-
-            vPortFree(buf);
         }
     }
 }

@@ -1,5 +1,4 @@
-#include <lib_l5.h>
-#include "hw_gpio.h"
+#include "hw.h"
 
 /* GPIO Ports Clock Enable */
 void hw_gpio_init(void) {

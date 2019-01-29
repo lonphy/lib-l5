@@ -4,15 +4,6 @@
 #include "mcu.h"
 #include <cmsis_os.h>
 
-typedef enum wifi_ap_err_t {
-    ap_err_ok,
-    ap_err_no_connect,
-    ap_err_timeout,
-    ap_err_not_found,
-    ap_err_connect_faild,
-    ap_err_parse,
-} wifi_ap_err_t;
-
 typedef enum wifi_err_t {
     wifi_ok,
     wifi_timeout,
@@ -23,6 +14,23 @@ typedef enum wifi_err_t {
     wifi_tx_error,
     wifi_reserved,
 } wifi_err_t;
+
+typedef enum wifi_ap_err_t {
+    ap_err_ok,
+    ap_err_no_connect,
+    ap_err_timeout,
+    ap_err_not_found,
+    ap_err_connect_faild,
+    ap_err_parse,
+} wifi_ap_err_t;
+
+typedef struct wifi_config_t {
+    uint16_t tx_timeout; /* transmit timeout, unit ms */
+    uint16_t rx_timeout; /* receive  timeout, unit ms */
+    void     (* start_rx_func)     (void *buf, uint32_t len);
+    void     (* start_tx_func)     (void *buf, uint32_t len);
+    uint32_t (* get_rx_length_func)();
+} wifi_config_t;
 
 typedef enum command_state_t {
     command_idle,
@@ -78,7 +86,7 @@ typedef struct {
     uint32_t gateway;
 } wifi_sta_ip_t;
 
-#define dma_rx_buf_size  640U
+#define dma_rx_buf_size  2* 1024U
 
 typedef struct {
     const char *command;               /* activity at command */
@@ -99,8 +107,7 @@ typedef struct {
     osSemaphoreId rx_sem;               /* Semaphore for a frame of uart data, with IDLE IT */
     osMessageQId dat_queue;             /* Queue for Rx frame (start with +IPD) */
 
-    uint16_t tx_timeout;                /* unit ms */
-    uint16_t rx_timeout;                /* unit ms */
+    wifi_config_t *opt;
 } wifi_t;
 
 
@@ -131,7 +138,7 @@ typedef struct net_dat_t {
 /**
  * @brief Init ESP8266
  */
-wifi_err_t l5_wifi_init(uint16_t tx_timeout, uint16_t rx_timeout);
+wifi_err_t l5_wifi_init(wifi_config_t *opt);
 
 /**
  * @brief Set low level uart baud rate
@@ -249,7 +256,12 @@ wifi_err_t l5_tcp_close(void);
  * tx complete
  * @param err
  */
-void l5_tx_complete(wifi_err_t err);
-void L5_rx_receive(wifi_err_t err);
+void l5_wifi_tx_complete(wifi_err_t err);
+
+/**
+ * rx complete
+ * @param err
+ */
+void L5_wifi_rx_receive(wifi_err_t err);
 
 #endif // __LIB_L5_ESP8266_01_H__

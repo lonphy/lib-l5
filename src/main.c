@@ -1,12 +1,5 @@
-#include "main.h"
 #include <lib_l5.h>
-
-#include "hw_log_uart.h"
-#include "hw_wifi_usart.h"
-#include "hw_crc.h"
-#include "hw_gpio.h"
-#include "hw_i2c.h"
-#include "hw_spi.h"
+#include "hw.h"
 
 void task_lcd12864(void const *arg);
 
@@ -22,6 +15,8 @@ void task_24c02(const void *arg);
 
 void task_w25q16(const void *arg);
 
+void task_music(void const *arg);
+
 void ll_init(void);
 
 void system_clock_config(void);
@@ -32,23 +27,19 @@ void _error_handler(char *file, int line) {
 
     while (1) {
         LL_mDelay(1000);
-        //l5_led_toggle(Led1);
     }
 }
 
 int main(void) {
     ll_init();
-
-    {
-        system_clock_config();
-        hw_gpio_init();
-        /* hw_crc_init(); */
-        hw_spi_init();
+    system_clock_config();
+    hw_gpio_init();
+    /* hw_crc_init(); */
 
 #if defined(L5_USE_USART_CONSOLE)
-        hw_log_usart_init();
+    hw_log_usart_init();
 #endif
-    }
+
     /*
         osThreadDef(main, task_main, osPriorityNormal, 0, 1024);
         osThreadCreate(osThread(main), NULL);
@@ -61,14 +52,14 @@ int main(void) {
     osThreadCreate(osThread(oled), NULL);
 #endif
 
-#if defined(L5_USE_LED)
+#if !defined(L5_USE_LED)
     {
         osThreadDef(led, task_led, osPriorityNormal, 1, 512);
         osThreadCreate(osThread(led), NULL);
     }
 #endif
 
-#if defined(L5_USE_ESP8266)
+#if defined(L5_WIFI_DEMO)
     {
         hw_wifi_usart_init();
         osThreadDef(wifi, task_wifi, osPriorityNormal, 1, 4096);
@@ -82,8 +73,19 @@ int main(void) {
         osThreadCreate(osThread(at24cxx), NULL);
     }
 #endif
+
+#if defined(L5_USE_W25QXX)
     osThreadDef(w25q16, task_w25q16, osPriorityNormal, 1, 512);
     osThreadCreate(osThread(w25q16), NULL);
+#endif
+
+#if defined(L5_MUSIC_DEMO)
+    {
+        hw_wifi_usart_init();
+        osThreadDef(music, task_music, osPriorityNormal, 1, 2048);
+        osThreadCreate(osThread(music), NULL);
+    }
+#endif
 
     osKernelStart();
     return 0;
@@ -98,8 +100,8 @@ void ll_init(void) {
     LL_APB1_GRP1_EnableClock(LL_APB1_GRP1_PERIPH_PWR);
 
     NVIC_SetPriorityGrouping(NVIC_PRIORITYGROUP_4);
-    L5_NVIC_SetPriority(PendSV_IRQn, 15);
-    L5_NVIC_SetPriority(PendSV_IRQn, 15);
+    NVIC_SetPriority(PendSV_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(), 15,0));
+    NVIC_SetPriority(SysTick_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(), 15,0));
 
 #if defined(STM32F1)
     LL_GPIO_AF_Remap_SWJ_NOJTAG();
@@ -117,12 +119,12 @@ void system_clock_config(void) {
 
     /* Enable HSE oscillator */
     LL_RCC_HSE_Enable();
-    while (LL_RCC_HSE_IsReady() != 1);
+    while (LL_RCC_HSE_IsReady() == RESET);
 
     /* Main PLL configuration and activation */
     LL_RCC_PLL_ConfigDomain_SYS(LL_RCC_PLLSOURCE_HSE_DIV_1, LL_RCC_PLL_MUL_9);
     LL_RCC_PLL_Enable();
-    while (LL_RCC_PLL_IsReady() != 1);
+    while (LL_RCC_PLL_IsReady() == RESET);
 
     /* Sysclk activation on the main PLL */
     LL_RCC_SetAHBPrescaler(LL_RCC_SYSCLK_DIV_1);
@@ -132,7 +134,7 @@ void system_clock_config(void) {
     while (LL_RCC_GetSysClkSource() != LL_RCC_SYS_CLKSOURCE_STATUS_PLL);
 
     /* Set systick to 1ms in using frequency set to 72MHz */
-    LL_Init1msTick(72000000);
+    LL_Init1msTick(SystemCoreClock);
     LL_SYSTICK_SetClkSource(LL_SYSTICK_CLKSOURCE_HCLK);
-    LL_SetSystemCoreClock(72000000);
+    LL_SetSystemCoreClock(SystemCoreClock);
 }

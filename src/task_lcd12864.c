@@ -2,6 +2,8 @@
 // Created by lonphy on 2018/10/25.
 //
 #include <lib_l5.h>
+#include "hw.h"
+
 #if defined(L5_USE_LCD12864)
 
 #include <string.h>

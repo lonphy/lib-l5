@@ -4,6 +4,7 @@
 
 #include "lib_l5.h"
 
+#if defined(L5_USE_W25QXX)
 
 #define SPI_W25QXX_CS(n) (n?\
                         (LL_GPIO_SetOutputPin(GPIOA, LL_GPIO_PIN_4)):\
@@ -14,6 +15,7 @@
 #define W25QXX_SECTOR_SIZE 0x1000
 
 #define spi_wr(dat) spi_write_read(SPI1, dat)
+
 #define w25qxx_cmd1(cmd) do { \
         SPI_W25QXX_CS(0);     \
         spi_wr(cmd);          \
@@ -242,3 +244,5 @@ uint32_t l5_w25qxx_read_id() {
 
     return (m << 16 | h << 8 | l);
 }
+
+#endif

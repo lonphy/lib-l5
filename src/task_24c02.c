@@ -2,8 +2,8 @@
 // Created by lonphy on 2019/1/16.
 //
 
+#include "hw.h"
 #include <lib_l5.h>
-#include "hw_i2c.h"
 
 #if defined(L5_USE_AT24CXX)
 #define total_bytes (256)  /* total size = (2 * 1024)bits  = (2048 / 8)Bytes = 256Bytes */

@@ -12,12 +12,22 @@
 
 #include "ring_queue.h"
 
+
+typedef struct _mem_block_t {
+    uint32_t size;
+    void *buf;
+} l5_mem_block_t;
+
 #ifdef L5_USE_LED
+
 #include "led.h"
+
 #endif
 
 #ifdef L5_USE_ESP8266
+
 #include "esp826601.h"
+
 #endif
 
 #ifdef L5_USE_LCD1602
