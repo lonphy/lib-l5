@@ -4,18 +4,16 @@
 #include <hw.h>
 
 #define LOG_GPIO       GPIOA
-#define LOG_PIN        LL_GPIO_PIN_9
-#define LOG_BAUD_RATE  115200
+#define LOG_BAUD_RATE  230400
 #define LOG_USART      USART1
 
 void hw_log_usart_init(void) {
     LL_APB2_GRP1_EnableClock(LL_APB2_GRP1_PERIPH_USART1);
 
-    {/* uart Tx pin config */
+    {/* uart Tx pin(PA9) config */
         /* Tx : Alternate function, High Speed, Push pull, Pull up */
-        LL_GPIO_SetPinMode(LOG_GPIO, LOG_PIN, LL_GPIO_MODE_ALTERNATE);
-        LL_GPIO_SetPinOutputType(LOG_GPIO, LOG_PIN, LL_GPIO_OUTPUT_PUSHPULL);
-        LL_GPIO_SetPinSpeed(LOG_GPIO, LOG_PIN, LL_GPIO_SPEED_FREQ_HIGH);
+        LOG_GPIO->CRH &= 0xffffff0f;
+        LOG_GPIO->CRH |= 0x000000b0;
     }
     {/* uart parameter */
         LL_USART_InitTypeDef uartOpt = {

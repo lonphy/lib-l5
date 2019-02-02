@@ -17,8 +17,7 @@ void _error_handler(char *, int);
 
 /* wifi uart config */
 #define WIFI_USART          UART4
-#define WIFI_BAUD_RATE      115200
-#define WIFI_WORK_BAUD_RATE 2250000 /* worker run baud rate */
+#define WIFI_BAUD_RATE      2250000
 #define WIFI_GPIO           GPIOC
 #define WIFI_Tx             LL_GPIO_PIN_10
 #define WIFI_Rx             LL_GPIO_PIN_11
@@ -44,6 +43,7 @@ void hw_log_usart_init();
 void hw_dac_init(void);
 
 void hw_dac_start_dma(void *buf, uint32_t len);
+void hw_dac_stop();
 
 void hw_wifi_usart_init();
 

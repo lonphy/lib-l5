@@ -24,7 +24,7 @@ typedef struct _mem_block_t {
 
 #endif
 
-#ifdef L5_USE_ESP8266
+#ifdef L5_USE_WIFI
 
 #include "esp826601.h"
 

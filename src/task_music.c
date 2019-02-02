@@ -13,16 +13,21 @@
 #define uint32_t_lit(p)   (*((uint32_t *) p))
 #define uint16_t_lit(p)   (*((uint16_t *) p))
 
-static l5_mem_block_t dual_buffer[2] = {0};
-__IO static uint8_t used_buffer_idx = 0;
-static osSemaphoreId buf_play_end_evt;
+#define pcm_buf_half_size 1344
+static uint8_t pcm_buffer[pcm_buf_half_size * 2] = {0};
 
-static void play_pcm_buffer(uint8_t idx);
+__IO static uint32_t readed_size = 0;
+static uint32_t pcm_size = 0;
+
+__IO static uint8_t need_load = 0;
+
+
+static void play_pcm_buffer();
 
 void init_wifi() {
     wifi_config_t opt = {
-            .rx_timeout = WIFI_RX_TIMEOUT,
-            .tx_timeout = WIFI_TX_TIMEOUT,
+            .rx_timeout = WIFI_RX_TIMEOUT*2,
+            .tx_timeout = WIFI_TX_TIMEOUT*4,
             .start_rx_func = hw_usart_start_dma_rx,
             .start_tx_func = hw_usart_start_dma_tx,
             .get_rx_length_func = hw_usart_get_dma_rx_length,
@@ -34,48 +39,49 @@ void init_wifi() {
         Error_Handler();
     }
 
-    l5_wifi_set_work_mode(work_mode_station);
+    // l5_wifi_set_work_mode(work_mode_station);
 
     { /* query which AP connected */
-        wifi_ap_t ap;
+        wifi_ap_t ap = {0};
         l5_wifi_get_joined_ap(&ap);
         switch (ap.err) {
             case ap_err_ok:
                 /* disconnect first if connected others. */
                 if (0 == strcmp(ap.ssid, AP_SSID)) {
+                    music_log("%s already connected", AP_SSID);
                     break;
                 }
                 l5_wifi_exit_ap();
 
             case ap_err_no_connect: {
-                if (wifi_ok != l5_wifi_join_ap(AP_SSID, AP_PWD)) {
+                /* else connect to specific ssid with pwd */
+                if (l5_wifi_join_ap(AP_SSID, AP_PWD) != wifi_ok) {
                     Error_Handler();
                 }
             }
                 break;
-            default:
-                (void) 0;
+            default: break;
         }
     }
 
-    if (ns_tcp_udp_connected == l5_wifi_net_status()) {
-        l5_tcp_close();
-    }
+    net_status_t status = l5_wifi_net_status();
+    music_log("net status %d", status);
 
-    if (wifi_ok != l5_tcp_dial(TCP_SERVER_IP, TCP_SERVER_PORT, 0)) {
-        music_log("tcp dial to %s:%d error", TCP_SERVER_IP, TCP_SERVER_PORT);
+    l5_tcp_close();
+
+    if (wifi_ok != l5_tcp_dial(TCP_SERVER_IP, TCP_SERVER_PORT, 3)) {
+        music_log("dial tcp(%s:%d) error", TCP_SERVER_IP, TCP_SERVER_PORT);
         Error_Handler();
     }
 }
+void task_pcm_reader(void const *arg);
 
 void task_music(void const *arg) {
     hw_dac_init();
 
     init_wifi();
 
-    if (wifi_ok != l5_tcp_write("begin", 5)) {
-        Error_Handler();
-    }
+    l5_tcp_write("b", 1);
     uint8_t *buf = NULL, *p;
     uint16_t size = 0;
     uint32_t file_size = 0;
@@ -123,68 +129,88 @@ void task_music(void const *arg) {
     p += 4;
 
     /* total length for PCM data */
-    uint32_t dat_size = uint32_t_lit(p);
+    pcm_size = uint32_t_lit(p);
     p += 4;
-    music_log("pcm total size = %lu", dat_size);
+    music_log("pcm total size = %lu", pcm_size);
 
-    used_buffer_idx = 0;
-    dual_buffer[0].size = size - (p - buf);
-    dual_buffer[0].buf = pvPortMalloc(dual_buffer[0].size);
-    memcpy(dual_buffer[0].buf, p, dual_buffer[0].size);
+    readed_size = size - (p - buf);
+
+    memcpy(pcm_buffer, p, readed_size);
     vPortFree(buf);
 
-    osSemaphoreDef(play_evt);
-    buf_play_end_evt = osSemaphoreCreate(osSemaphore(play_evt), 1);
+    osThreadDef(dat_reader, task_pcm_reader, osPriorityHigh, 1, 1024);
+    osThreadId tReader = osThreadCreate(osThread(dat_reader), NULL);
 
-    play_pcm_buffer(used_buffer_idx);
+    while (readed_size < pcm_size) {
 
-    uint32_t readed_size = dual_buffer[0].size;
 
-    while (readed_size < dat_size) {
 
-        if (wifi_ok != l5_tcp_write("next", 4)) {
-            Error_Handler();
-        }
-
-        if (wifi_ok != l5_tcp_read((void **) &buf, &size, osWaitForever)) {
-            continue;
-        }
-
-        /* wait sem, fill next buffer */
-        /* FIXME: it may be panic when net speed slower than dac convert speed */
-        osSemaphoreWait(buf_play_end_evt, osWaitForever);
-
-        used_buffer_idx = (uint8_t) ((used_buffer_idx + 1) % 2);
-
-        dual_buffer[used_buffer_idx].size = size;
-        dual_buffer[used_buffer_idx].buf = pvPortMalloc(size);
-        memcpy(dual_buffer[used_buffer_idx].buf, buf, size);
-        vPortFree(buf);
-        readed_size += size;
-
+        osDelay(200);
     }
 
     /* exit current task */
-    vTaskDelete(NULL);
+    vTaskDelete(tReader);
+    osDelay(osWaitForever);
 }
 
-void play_pcm_buffer(uint8_t idx) {
-    hw_dac_start_dma(dual_buffer[idx].buf, dual_buffer[idx].size);
+
+void task_pcm_reader(void const *arg) {
+    uint8_t *buf = NULL;
+    uint16_t size = 0;
+    wifi_err_t err;
+
+    l5_tcp_write("n", 1);
+    l5_tcp_read((void **) &buf, &size, osWaitForever);
+    memcpy(pcm_buffer + pcm_buf_half_size, buf, pcm_buf_half_size);
+    vPortFree(buf);
+
+    play_pcm_buffer();
+
+
+    while (readed_size < pcm_size) {
+        while (need_load == 0){}
+
+        err = l5_tcp_write("n", 1);
+        if (wifi_ok != err) {
+            music_log("write n error %x", err);
+            hw_dac_stop();
+            return;
+        }
+
+        if (wifi_ok != l5_tcp_read((void **) &buf, &size, 8000)) {
+            music_log("read timeout");
+            hw_dac_stop();
+            return;
+        }
+
+        if ( need_load == 1) {
+            need_load = 0;
+            memcpy(pcm_buffer + pcm_buf_half_size, buf, pcm_buf_half_size);
+        } else {
+            need_load = 0;
+            memcpy(pcm_buffer, buf, pcm_buf_half_size);
+        }
+
+        vPortFree(buf);
+        readed_size += size;
+    }
+
+    hw_dac_stop();
+}
+
+void play_pcm_buffer() {
+    hw_dac_start_dma(pcm_buffer, pcm_buf_half_size*2);
 }
 
 /* IRQn for DAC Channel2 */
 void hw_DMA2_Channel4_IRQHandler(void) {
     if (LL_DMA_IsActiveFlag_TC4(DMA2)) {
-
         /* Clear and disable IT for DAC's DMA */
         LL_DMA_ClearFlag_TC4(DMA2);
-        LL_DAC_DisableDMAReq(DAC, LL_DAC_CHANNEL_2);
-
-        /* play next buffer */
-        play_pcm_buffer(used_buffer_idx);
-
-        /* release sem, notify to fetch next buffer */
-        osSemaphoreRelease(buf_play_end_evt);
+        need_load = 1;
+    } else if (LL_DMA_IsActiveFlag_HT4(DMA2)) {
+        LL_DMA_ClearFlag_HT4(DMA2);
+        need_load = 2;
     }
 }
 

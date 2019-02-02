@@ -59,7 +59,7 @@ static inline void hw_uart_dma_init() {
     {/* Configure the DMA for UART Tx */
         LL_DMA_ConfigTransfer(UART_DMA, Tx_DMA_Ch,
                               LL_DMA_DIRECTION_MEMORY_TO_PERIPH |
-                              LL_DMA_PRIORITY_VERYHIGH |
+                              LL_DMA_PRIORITY_MEDIUM |
                               LL_DMA_MODE_NORMAL |
                               LL_DMA_PERIPH_NOINCREMENT |
                               LL_DMA_MEMORY_INCREMENT |

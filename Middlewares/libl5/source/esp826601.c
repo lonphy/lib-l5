@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-#if defined(L5_USE_ESP8266)
+#if defined(L5_USE_WIFI)
 
 static inline const char *parse_ip(const char *str, uint32_t *dest);
 
@@ -54,6 +54,7 @@ void response_parser_task(__unused const void *arg) {
             buf = pvPortMalloc(size + 1);
             memcpy(buf, esp8266.rx_buf[esp8266.ready_buf_idx], size);
             buf[size] = 0;
+            // memset(esp8266.rx_buf[esp8266.ready_buf_idx], 0, dma_rx_buf_size);
         }
 
         pProcessing = buf;
@@ -178,6 +179,14 @@ void response_parser_task(__unused const void *arg) {
                     }
                 }
 
+                /* for AT+CWJAP? */
+                p = strstr(pProcessing, "No AP\r\n\r\nOK\r\n");
+                if (p && p == pProcessing) {
+                    alloc_command_response(13, pProcessing);
+                    pProcessing += 13;
+                    continue;
+                }
+
                 /* for AT+CIPSTATUS */
                 p = strstr(pProcessing, "STATUS:");
                 if (p && p == pProcessing) {
@@ -249,7 +258,7 @@ wifi_err_t l5_wifi_init(wifi_config_t *opt) {
     osSemaphoreDef(tc_sem);
     osSemaphoreDef(rx_sem);
     osMessageQDef(data_queue, 3, net_dat_t*);
-    osThreadDef(rsp_parser, response_parser_task, osThreadGetPriority(osThreadGetId()), 1, 1024);
+    osThreadDef(rsp_parser, response_parser_task, osPriorityRealtime, 1, 1024);
 
     /* In order to store the wifi configuration, we have to alloc a block of memory,
        because the opt may be allocated in the stack. */
@@ -303,11 +312,11 @@ wifi_err_t l5_wifi_set_baudrate(uint32_t baud) {
     }
 
     char *buf = pvPortMalloc(32);
-    int len = sprintf(buf, "AT+UART_CUR=%lu,8,1,0,0", baud);
+    int len = sprintf(buf, "AT+UART_DEF=%lu,8,1,0,0", baud);
 
-    esp8266.opt->rx_timeout <<=1;
+    esp8266.opt->rx_timeout <<=2;
     esp8266_exec(buf, (uint16_t) len, simple_rsp_ok);
-    esp8266.opt->rx_timeout >>=1;
+    esp8266.opt->rx_timeout >>=2;
     if (esp8266.err != wifi_ok) {
         vPortFree(buf);
         return esp8266.err;
@@ -501,6 +510,7 @@ wifi_err_t l5_wifi_scan_ap_list(wifi_ap_t list[], uint8_t limit) {
     p = buf;
     for (uint8_t n = 0; n < limit && *p; n++) {
         if (strncmp(p, "+CWLAP:(", 8) != 0) {
+            vPortFree(buf);
             return wifi_invalid_response;
         }
         p += 8;
@@ -636,10 +646,10 @@ wifi_err_t l5_net_domain(const char *domain, uint32_t *ipv4) {
 }
 
 wifi_err_t l5_tcp_dial(const char *domain, uint16_t port, uint16_t keep_alive) {
-    char *cmd_buf = pvPortMalloc(64);
-    int real_cmd_len = sprintf(cmd_buf, "AT+CIPSTART=\"TCP\",\"%s\",%d,%d\r\n", domain, port, keep_alive);
-    esp8266_exec(cmd_buf, (uint16_t) real_cmd_len, simple_rsp_ok);
-    vPortFree(cmd_buf);
+    char *buf = pvPortMalloc(64);
+    int real_cmd_len = sprintf(buf, "AT+CIPSTART=\"TCP\",\"%s\",%d,%d\r\n", domain, port, keep_alive);
+    esp8266_exec(buf, (uint16_t) real_cmd_len, simple_rsp_ok);
+    vPortFree(buf);
     return esp8266.err;
 }
 
@@ -689,7 +699,10 @@ void L5_wifi_rx_receive(wifi_err_t err) {
 /* -------------------- private ---------------------- */
 
 static inline void alloc_command_response(size_t size, const void *dat) {
-    vPortFree((void *) esp8266.command_response);
+    if (esp8266.command_response) {
+        vPortFree(esp8266.command_response);
+        esp8266.command_response = 0;
+    }
     esp8266.command_response = pvPortMalloc(size + 1);
     memcpy((void *) esp8266.command_response, dat, size);
     esp8266.command_response[size] = 0;
@@ -742,8 +755,6 @@ static inline void esp8266_write_dat(const void *buf, uint16_t buf_len) {
         esp8266.err = wifi_invalid_response;
         goto END;
     }
-    vPortFree((void *) esp8266.command_response);
-    esp8266.command_response = NULL;
 
     /* step4. write data to esp8266 */
     uart_transmit(buf, buf_len);
@@ -833,4 +844,4 @@ static inline void uart_transmit(const char *buf, uint16_t buf_size) {
     }
 }
 
-#endif // defined(L5_USE_ESP8266)
+#endif // defined(L5_USE_WIFI)

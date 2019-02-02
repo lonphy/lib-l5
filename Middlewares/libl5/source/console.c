@@ -23,7 +23,7 @@ int _write(int fd, const char *ptr, int len) {
 extern void hw_log_write(const char *buf, unsigned short len);
 
 int _write(int fd, const char *ptr, int len) {
-    hw_log_write(ptr, (unsigned short) len);
+    //hw_log_write(ptr, (unsigned short) len);
     return len;
 }
 

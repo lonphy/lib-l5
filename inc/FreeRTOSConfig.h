@@ -88,6 +88,7 @@
 
 /* Ensure stdint is only used by the compiler, and not the assembler. */
 #include <stdint.h>
+#include <stdio.h>
 extern uint32_t SystemCoreClock;
 
 #define configUSE_PREEMPTION                     1
@@ -166,6 +167,10 @@ header file. */
         for( ;; );\
     } \
 }while(0)
+
+#define traceMALLOC(pvAddress, uiSize) printf("[os] alloc %d bytes @ %p, t=%d\n",  uiSize, pvAddress, xFreeBytesRemaining)
+
+#define traceFREE( pvAddress, uiSize ) printf("[os] free %d bytes @ %p, t=%d\n", uiSize, pvAddress, xFreeBytesRemaining)
 /* USER CODE END 1 */
 
 /* Definitions that map the FreeRTOS port interrupt handlers to their CMSIS
